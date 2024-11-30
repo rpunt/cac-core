@@ -1,7 +1,7 @@
 import os
 import yaml
 
-def load(module_name) -> dict:
+def load(module_name, default_config) -> dict:
     """
     Load the configuration from YAML files.
 
@@ -18,17 +18,18 @@ def load(module_name) -> dict:
     """
 
     USER_CONFIG_PATH = os.path.expanduser(f"~/.config/{module_name}/config.yaml")
+    USER_CONFIG_DIR = os.path.dirname(USER_CONFIG_PATH)
 
     # TODO: this does NOTHING right now, it's in the context of the module, not the caller
-    default_config = {}
-    default_config_dir = os.path.join(os.path.dirname(__file__), 'config')
-    default_config_file = os.path.join(default_config_dir, f"{module_name}.yaml")
-    if os.path.exists(default_config_file):
-        with open(default_config_file, 'r') as f:
-            default_config.update(yaml.safe_load(f))
+    # default_config = {}
+    # default_config_dir = os.path.join(os.path.dirname(__file__), 'config')
+    # default_config_file = os.path.join(default_config_dir, f"{module_name}.yaml")
+    # if os.path.exists(default_config_file):
+    #     with open(default_config_file, 'r') as f:
+    #         default_config.update(yaml.safe_load(f))
 
-    if not os.path.exists(USER_CONFIG_PATH):
-        os.makedirs(USER_CONFIG_PATH)
+    if not os.path.exists(USER_CONFIG_DIR):
+        os.makedirs(USER_CONFIG_DIR, exist_ok=True)
 
     if not os.path.exists(USER_CONFIG_PATH):
         with open(USER_CONFIG_PATH, 'w') as f:
