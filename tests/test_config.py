@@ -2,7 +2,7 @@ import unittest
 from unittest.mock import patch, mock_open
 import os
 import yaml
-# from cac_core.config import load, save
+from cac_core.config import load, save
 
 class TestConfig(unittest.TestCase):
     def setUp(self):
