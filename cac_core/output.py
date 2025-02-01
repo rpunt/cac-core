@@ -38,8 +38,8 @@ class OutputTable:
             self.logger.info('No results were found')
             return
 
-        self._OutputTable__resolve_models(models)
-        self._OutputTable__output_to_table(models, table_options)
+        self.__resolve_models(models)
+        self.__output_to_table(models, table_options)
 
     def __create_logger(self):
         logger = logging.getLogger("OutputTable")
@@ -76,7 +76,7 @@ class OutputTable:
         return [model.to_dict() for model in models] if isinstance(models, list) else models.to_dict()
 
     def __models_to_json(self, models):
-        return json.dumps(self.models_to_hash(models))
+        return json.dumps(self.__models_to_hash(models))
 
     def __output_to_table(self, models, table_options):
         # column_options = self._OutputTable__column_options_from_models(models)
@@ -92,14 +92,14 @@ class OutputTable:
         headers = models[0].keys()
         table_data = []
         for model in models:
-            table_data.append(model.data.values())
+            table_data.append(model.values())
         print(tabulate.tabulate(table_data, headers, tablefmt='fancy_grid'))
 
         print(f"{len(table_data)} rows")
 
     def __resolve_models(self, models):
         for model in models:
-            for k, v in model.data.items():
+            for k, v in model.items():
                 if isinstance(v, dict):
                     model[k] = json.dumps(v)
                 elif isinstance(v, list):

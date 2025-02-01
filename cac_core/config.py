@@ -28,8 +28,8 @@ def load(module_name, default_config) -> dict:
     #     with open(default_config_file, 'r') as f:
     #         default_config.update(yaml.safe_load(f))
 
-    if not os.path.exists(USER_CONFIG_DIR):
-        os.makedirs(USER_CONFIG_DIR, exist_ok=True)
+    # if not os.path.exists(USER_CONFIG_DIR):
+    os.makedirs(USER_CONFIG_DIR, exist_ok=True)
 
     if not os.path.exists(USER_CONFIG_PATH):
         with open(USER_CONFIG_PATH, 'w') as f:
