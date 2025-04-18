@@ -32,16 +32,6 @@ class CLI:
         self.config = config or {}
         self.opts = {}
         self.parser = argparse.ArgumentParser(description=self.config.get('description', ''))
-        # self._setup_parser()
-
-    # def _setup_parser(self):
-    #     """
-    #     Sets up the argument parser with commands and options.
-    #     """
-    #     subparsers = self.parser.add_subparsers(dest='command', help='Available commands')
-    #     for command, module in self.commands.items():
-    #         command_parser = subparsers.add_parser(command, help=f'{command} command')
-    #         module.setup_parser(command_parser)
 
     def parse_args(self, args=None):
         """

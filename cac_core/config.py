@@ -9,7 +9,6 @@ and configuration files. It supports multiple environments and hierarchical
 configuration structures.
 """
 
-import inspect
 import os
 import sys
 import yaml
@@ -30,9 +29,7 @@ class Config:
 
     def __init__(self, module_name) -> dict:
         self.config = {}
-        self.config_file = os.path.expanduser(
-            f"~/.config/{module_name}/config.yaml"
-        )
+        self.config_file = os.path.expanduser(os.path.join("~", ".config", module_name, "config.yaml"))
         self.config_dir = os.path.dirname(self.config_file)
         self.module_name = module_name
         self.config = self.load(module_name)
@@ -123,3 +120,32 @@ class Config:
                 )
 
         return default_config
+
+    def validate_schema(self, schema):
+        """
+        Validates configuration against a JSON schema.
+
+        Args:
+            schema (dict): JSON schema to validate against
+
+        Returns:
+            tuple: (is_valid, errors)
+        """
+        try:
+            import jsonschema # pylint: disable=import-outside-toplevel
+            jsonschema.validate(self.config, schema)
+            return True, []
+        except jsonschema.exceptions.ValidationError as e:
+            return False, [str(e)]
+        except ImportError:
+            print("jsonschema package not installed, skipping validation")
+            return True, ["jsonschema not installed"]
+
+    def __enter__(self):
+        """Support for with statement: with Config() as config:"""
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        """Clean up resources when exiting context"""
+        # Add any cleanup if needed
+        pass  # pylint: disable=unnecessary-pass

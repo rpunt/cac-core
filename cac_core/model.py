@@ -12,7 +12,8 @@ and supports serialization to dictionaries and JSON for data exchange.
 """
 
 import json
-# from collections.abc import Iterable
+import copy
+from typing import Any, Dict, List, Optional, Set, Tuple #, Union
 
 class Model:
     """
@@ -25,21 +26,26 @@ class Model:
 
     Attributes:
         data (dict): The underlying data dictionary.
-        static_methods (set): Set of dynamically created attribute names.
+        field_names (set): Set of dynamically created attribute names.
     """
 
-    def __init__(self, data, keys_to_remove=None):
-        self.static_methods = set()
-        self.data = {}
+    def __init__(self, row_data: Dict[str, Any], keys_to_remove: Optional[List[str]] = None) -> None:
+        self.field_names: Set[str] = set()
+        self.data: Dict[str, Any] = {}
+        self._key_order: List[str] = []
+        self._formatters: Dict[str, Any] = {}
+        self._remove_keys: List[str] = []
 
         if keys_to_remove is None:
             keys_to_remove = self.remove_keys()
 
-        for key, value in data.items():
+        for key, value in row_data.items():
             if key in keys_to_remove:
                 continue
 
-            self.static_methods.add(key)
+            self.field_names.add(key)
+            self._key_order.append(key)  # Track insertion order
+            # Dynamically create getter and setter methods for each key
             self.add_key(key, value)
 
             if isinstance(value, list):
@@ -61,35 +67,35 @@ class Model:
             key (str): The key to add to the model.
             value: The value to associate with the key.
         """
-        setattr(self, key, self.data.get(key))
-        setattr(self, f"{key}=", lambda val: self.data.update({key: val}))
+        # Create property for more Pythonic attribute access
+        def getter(self, key=key):
+            return self.data.get(key)
+
+        def setter(self, value, key=key):
+            self.data[key] = value
+
+        prop = property(lambda self: getter(self), lambda self, val: setter(self, val))
+        setattr(self.__class__, key, prop)
+
+        # Keep existing methods for backward compatibility
+        setattr(self, f"{key}=", lambda val, key=key: self.data.update({key: val}))
 
     def __iter__(self):
-        for key in self.static_methods:
+        for key in self.field_names:
             yield key, getattr(self, key)
 
-    def items(self):
-        """
-        Returns a view of the model's key-value pairs, similar to dict.items().
-
-        Returns:
-            list: A list of (key, value) tuples for all keys in the model.
-        """
+    def items(self) -> List[Tuple[str, Any]]:
+        """Returns key-value pairs as a list of tuples"""
         result = []
-        for key in self.static_methods:
+        for key in self.field_names:
             # Get the actual value from data dictionary instead of using getattr
             value = self.data.get(key)
             result.append((key, value))
         return result
 
-    def values(self):
-        """
-        Returns the values of the model, similar to dict.values().
-
-        Returns:
-            list: A list of values for all keys in the model.
-        """
-        return [self.data.get(key) for key in self.static_methods]
+    def values(self) -> List[Any]:
+        """Returns values as a list"""
+        return [self.data.get(key) for key in self.field_names]
 
     def __str__(self):
         return f"#<{self.__class__.__name__} {self.current_state()}>"
@@ -108,12 +114,12 @@ class Model:
 
     def keys(self):
         """
-        Returns a list of keys in the model.
+        Returns a list of keys in the model in their original insertion order.
 
         Returns:
-            list: A list of all keys in the model.
+            list: A list of all keys in the model in insertion order.
         """
-        return list(self.static_methods)
+        return self._key_order
 
     def to_dict(self):
         """
@@ -123,7 +129,8 @@ class Model:
             dict: A dictionary containing all key-value pairs from the model,
                   with nested models also converted to dictionaries.
         """
-        return {key: self._process_results(self.data.get(key)) for key in self.static_methods}
+        # More efficient implementation using comprehension
+        return {key: self._process_results(self.data.get(key)) for key in self._key_order}
 
     def remove_keys(self):
         """
@@ -153,7 +160,7 @@ class Model:
         Returns:
             str: A string representation of the model's current state.
         """
-        return ' '.join(f"{key}={getattr(self, key)}" for key in self.static_methods)
+        return ' '.join(f"{key}={getattr(self, key)}" for key in self.field_names)
 
     def _process_results(self, value):
         if isinstance(value, Model):
@@ -161,3 +168,94 @@ class Model:
         if isinstance(value, list):
             return [self._process_results(val) for val in value]
         return value
+
+    def get(self, key, default=None):
+        """
+        Returns the value for the given key, or the default if the key is not found.
+
+        This method enables dictionary-like access to the model's attributes.
+
+        Args:
+            key (str): The key to look up.
+            default: The value to return if the key is not found.
+
+        Returns:
+            The value associated with the key, or the default value.
+        """
+        if key in self.field_names:
+            return self.data.get(key)
+        return default
+
+    def __getitem__(self, key):
+        """Dictionary-style access with model[key]"""
+        if key in self.field_names:
+            return self.data.get(key)
+        raise KeyError(key)
+
+    def __setitem__(self, key, value):
+        """Dictionary-style assignment with model[key] = value"""
+        if key not in self.field_names:
+            self.field_names.add(key)
+            self._key_order.append(key)
+            self.add_key(key, value)
+        self.data[key] = value
+
+    def __contains__(self, key):
+        """Support for 'in' operator: key in model"""
+        return key in self.field_names
+
+    def __len__(self):
+        """Support for len(model)"""
+        return len(self.field_names)
+
+    def __repr__(self) -> str:
+        """Developer-friendly string representation"""
+        class_name = self.__class__.__name__
+        attrs = ", ".join(f"{k}={repr(v)}" for k, v in list(self.items())[:3])
+        if len(self.field_names) > 3:
+            attrs += ", ..."
+        return f"{class_name}({attrs})"
+
+    def __copy__(self):
+        """Support for copy.copy(model)"""
+        new_model = self.__class__({}, [])
+        new_model.data = copy.copy(self.data)
+        new_model.field_names = copy.copy(self.field_names)
+        new_model._key_order = copy.copy(self._key_order)
+        return new_model
+
+    def __deepcopy__(self, memo):
+        """Support for copy.deepcopy(model)"""
+        new_model = self.__class__({}, [])
+        memo[id(self)] = new_model
+        new_model.data = copy.deepcopy(self.data, memo)
+        new_model.field_names = copy.deepcopy(self.field_names, memo)
+        new_model._key_order = copy.deepcopy(self._key_order, memo)
+        return new_model
+
+    def validate(self) -> List[str]:
+        """
+        Validates the model against defined constraints.
+
+        Returns:
+            List[str]: List of validation errors, empty if valid
+        """
+        errors = []
+        # Child classes can implement specific validation logic
+        return errors
+
+    def is_valid(self) -> bool:
+        """
+        Returns True if the model passes all validation.
+
+        Returns:
+            bool: True if valid, False otherwise
+        """
+        return len(self.validate()) == 0
+
+    # In Model class:
+
+    def format_column(self, key, formatter):
+        """Sets a formatter function for a specific column"""
+        self._formatters[key] = formatter
+        self._formatters[key] = formatter

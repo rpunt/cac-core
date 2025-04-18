@@ -40,14 +40,32 @@ class Command(metaclass=abc.ABCMeta):
         Args:
             parser (ArgumentParser): The argument parser to add arguments to
         """
-        # Check if the JSON argument already exists by checking all arguments
-        has_json = any(action.dest == 'json' for action in parser._actions)
-        if not has_json:
+        # placeholders for when we start inter-command communication
+        # has_suppress = any(action.dest == 'suppress_output' for action in parser._actions)
+        # if not has_suppress:
+        #     parser.add_argument(
+        #         "--suppress-output",
+        #         help="Suppress output",
+        #         action="store_true",
+        #         default=False,
+        #     )
+        # has_external = any(action.dest == 'external_call' for action in parser._actions)
+        # if not has_external:
+        #     parser.add_argument(
+        #         "--external-call",
+        #         help="External call",
+        #         action="store_true",
+        #         default=False,
+        #     )
+        has_output = any(action.dest == 'output' for action in parser._actions)
+        if not has_output:
             parser.add_argument(
-                "--json",
-                help="Output JSON",
-                action="store_true",
-                default=False,
+                "--output",
+                help="Output format",
+                choices=["json", "table"],
+                default="table",
+                type=str,
+                metavar="FORMAT",
             )
 
         # Check if the verbose argument already exists
