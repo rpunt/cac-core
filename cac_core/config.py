@@ -1,4 +1,4 @@
-# pylint: disable=line-too-long
+# pylint: disable=line-too-long, broad-exception-caught
 
 """
 Configuration module for the Command and Control (CAC) Core package.
@@ -11,6 +11,7 @@ configuration structures.
 
 import inspect
 import os
+import sys
 import yaml
 
 
@@ -34,7 +35,7 @@ class Config:
         )
         self.config_dir = os.path.dirname(self.config_file)
         self.module_name = module_name
-        self.config = self.load(module_name, {})
+        self.config = self.load(module_name)
 
         # Add each config key-value pair as an object attribute
         for key, value in self.config.items():
@@ -53,7 +54,7 @@ class Config:
         """
         return self.config.get(key, default)
 
-    def load(self, module_name, default_config) -> dict:
+    def load(self, module_name) -> dict:
         """
         Load the configuration from YAML files.
 
@@ -68,21 +69,8 @@ class Config:
         Raises:
             OSError: If there is an error creating the directories or writing the configuration file.
         """
-        # Find the first frame in the stack whose path contains module_name
-        caller_path = None
-        for frame in inspect.stack():
-            module = inspect.getmodule(frame[0])
-            if module and module.__file__ and module_name in module.__file__:
-                caller_path = module.__file__
-                break
-
-        # Read default configuration from calling module's config directory
-        if caller_path:
-            default_config_dir = os.path.join(os.path.dirname(caller_path), 'config')
-            default_config_file = os.path.join(default_config_dir, f"{module_name}.yaml")
-            if os.path.exists(default_config_file):
-                with open(default_config_file, 'r', encoding='utf-8') as f:
-                    default_config.update(yaml.safe_load(f))
+        # Try to load the default config from package directory
+        default_config = self._load_default_config(module_name)
 
         # Create config directory if it doesn't exist
         os.makedirs(self.config_dir, exist_ok=True)
@@ -103,3 +91,35 @@ class Config:
                 config.update(user_config)
 
         return config
+
+    def _load_default_config(self, module_name):
+        """
+        Automatically load default config from the module's config directory.
+
+        Args:
+            module_name: Module name to load default config for
+
+        Returns:
+            dict: Default configuration or empty dict if not found
+        """
+        default_config = {}
+        module_path = sys.modules[module_name].__file__
+        if not module_path:
+            return default_config
+
+        module_dir = os.path.dirname(module_path)
+        default_config_dir = os.path.join(module_dir, "config")
+        default_config_file = os.path.join(default_config_dir, f"{module_name}.yaml")
+
+        if os.path.exists(default_config_file):
+            try:
+                with open(default_config_file, "r", encoding="utf-8") as f:
+                    loaded_config = yaml.safe_load(f)
+                    if loaded_config:
+                        default_config.update(loaded_config)
+            except Exception as e:
+                print(
+                    f"Failed to load default config from {default_config_file}: {e}"
+                )
+
+        return default_config
