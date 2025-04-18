@@ -105,7 +105,7 @@ class Output:
             else:
                 table_data.append(model.values())
 
-        print(tabulate.tabulate(table_data, headers, tablefmt='fancy_grid'))
+        print(tabulate.tabulate(table_data, headers, tablefmt='pretty', stralign='left', numalign='right'))
         row_count = len(table_data)
         print(f"{row_count} {'row' if row_count == 1 else 'rows'}")
 
