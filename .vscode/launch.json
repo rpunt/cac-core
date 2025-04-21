@@ -9,6 +9,18 @@
             "console": "integratedTerminal"
         },
         {
+            "name": "Python: pytest",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "pytest",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "args": [
+                "-v",
+                "${workspaceFolder}/tests"
+            ]
+        },
+        {
             "name": "Python: Attach",
             "type": "debugpy",
             "request": "attach",

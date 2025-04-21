@@ -109,8 +109,8 @@ class Model:
         """
         return json.dumps(self.to_dict())
 
-    def __eq__(self, other):
-        return self.current_state() == other.current_state()
+    # def __eq__(self, other):
+    #     return self.current_state() == other.current_state()
 
     def keys(self):
         """
