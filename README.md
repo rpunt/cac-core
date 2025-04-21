@@ -4,7 +4,7 @@ An API client library providing essential functionality for command-line applica
 
 ## Overview
 
-CAC Core (`cac_core`) is a Python library that provides common utilities for building robust command-line applications. It includes modules for configuration management, standardized logging, data modeling, and formatted output display.
+CAC Core (`cac-core`) is a Python library that provides common utilities for building robust command-line applications. It includes modules for configuration management, standardized logging, data modeling, and formatted output display.
 
 ## Features
 
