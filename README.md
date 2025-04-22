@@ -4,10 +4,11 @@ An API client library providing essential functionality for command-line applica
 
 ## Overview
 
-CAC Core (`cac-core`) is a Python library that provides common utilities for building robust command-line applications. It includes modules for configuration management, standardized logging, data modeling, and formatted output display.
+CAC Core (`cac-core`) is a Python library that provides common utilities for building robust command-line applications. It includes modules for commands, configuration management, standardized logging, data modeling, and formatted output display.
 
 ## Features
 
+- **Command**: Define commands, required or optional arguments, and action implementations
 - **Configuration Management**: Load/save configs from YAML files with environment variable support
 - **Standardized Logging**: Consistent, configurable logging across applications
 - **Data Modeling**: Dynamic attribute creation and manipulation with dictionary-like access
@@ -24,6 +25,46 @@ poetry add cac-core
 ```
 
 ## Usage
+
+### Command
+
+```python
+import cac_core as cac
+
+# Create a command class
+class HelloCommand(cac.command.Command):
+    def define_arguments(self, parser):
+        """Define command arguments"""
+        parser.add_argument('--name', default='World',
+                          help='Name to greet')
+
+    def execute(self, args):
+        """Execute the command with parsed arguments"""
+        logger = cac.logger.new(__name__)
+        logger.info(f"Hello, {args.name}!")
+        return f"Hello, {args.name}!"
+
+# Use the command in your application
+if __name__ == "__main__":
+    # Create argument parser
+    import argparse
+    parser = argparse.ArgumentParser(description='Demo application')
+
+    # Initialize command
+    cmd = HelloCommand()
+
+    # Add command arguments
+    cmd.define_arguments(parser)
+
+    # Parse arguments
+    args = parser.parse_args()
+
+    # Execute command
+    result = cmd.execute(args)
+
+    # Display result
+    print(result)
+```
 
 ### Configuration
 
@@ -103,6 +144,7 @@ poetry run pytest
 
 ## Project Structure
 
+- command.py - Command management
 - config.py - Configuration management
 - logger.py - Standardized logging
 - model.py - Data modeling utilities

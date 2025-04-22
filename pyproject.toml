@@ -1,9 +1,23 @@
 [tool.poetry]
 name = "cac-core"
-version = "0.2.0"
+version = "0.2.1"
 description = ""
 authors = ["Ryan Punt <ryan@mirum.org>"]
+license = "MIT"
 readme = "README.md"
+homepage = "https://mirum.org/cac-core/"
+repository = "https://github.com/rpunt/cac-core"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12"
+]
+packages = [{include = "cac_core"}]
+keywords = ["api", "framework", "cli", "command-lint", "python", "cli-tool"]
 
 [tool.poetry.dependencies]
 python = "^3.9"
@@ -16,12 +30,24 @@ pyyaml = "^6.0.2"
 pytest = "^8.3.5"
 pytest-cov = "^6.1.1"
 
+[tool.poetry.group.test.dependencies]
+pytest = "^7.3.1"
+
+[tool.poetry.group.lint.dependencies]
+black = "^23.3.0"
+isort = "^5.12.0"
+pylint = "^2.17.0"
+
+[tool.poetry.group.docs.dependencies]
+sphinx = "^7.0.0"
+sphinx-rtd-theme = "^1.2.0"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 python_files = "test_*.py"
 python_classes = "Test*"
 python_functions = "test_*"
-
-[build-system]
-requires = ["poetry-core"]
-build-backend = "poetry.core.masonry.api"
