@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 """
-Command module for the Command and Control (CAC) Core package.
+Command module for the CAC Core package.
 
 This module provides the Command class which serves as the base class for all
 command implementations in the CAC framework. It defines the structure and

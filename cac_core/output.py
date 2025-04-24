@@ -1,5 +1,5 @@
 """
-Output module for the Command and Control (CAC) Core package.
+Output module for the CAC Core package.
 
 This module provides the Output class which handles formatting and displaying
 results from CAC operations. It supports multiple output formats including

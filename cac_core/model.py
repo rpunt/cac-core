@@ -1,7 +1,7 @@
 # pylint: disable=line-too-long
 
 """
-Model module for the Command and Control (CAC) Core package.
+Model module for the CAC Core package.
 
 This module provides the Model class, which is the foundation for all data models
 in the CAC framework. It implements dynamic attribute creation, dictionary-like

@@ -1,7 +1,7 @@
 # pylint: disable=line-too-long, broad-exception-caught
 
 """
-Configuration module for the Command and Control (CAC) Core package.
+Configuration module for the CAC Core package.
 
 This module provides functionality for loading, parsing, and accessing
 configuration settings from various sources including environment variables
