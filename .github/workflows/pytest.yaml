@@ -20,11 +20,11 @@ jobs:
           python -m pip install --upgrade pip
           if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
           python -m pip install -e .
-      - name: Lint with Ruff
-        run: |
-          pip install ruff
-          ruff check --format=github --target-version=py312 .
-        continue-on-error: true
+      # - name: Lint with Ruff
+      #   run: |
+      #     pip install ruff
+      #     ruff check --format=github --target-version=py312 .
+      #   continue-on-error: true
       # - name: Check code formatting with Ruff
       #   run: ruff format --diff --target-version=py39
       #   continue-on-error: true
