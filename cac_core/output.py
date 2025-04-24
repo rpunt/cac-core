@@ -12,13 +12,6 @@ import json
 import logging
 import tabulate
 
-class ColumnFormatter:
-    def __init__(self, key, formatter=None, header=None, width=None):
-        self.key = key
-        self.formatter = formatter or (lambda x: x)
-        self.header = header or key
-        self.width = width
-
 class Output:
     """
     Handles the formatting and display of data in the CAC framework.
@@ -28,12 +21,12 @@ class Output:
     It can also convert models to dictionaries for external API calls.
 
     Attributes:
-        opts (dict): Options that control output behavior
+        params (dict): Options that control output behavior
         logger (Logger): Logger instance for output messages
     """
 
-    def __init__(self, opts):
-        self.opts = opts
+    def __init__(self, params):
+        self.opts = params
         self.logger = self.__create_logger()
 
     def print_models(self, data_models, table_options=None):

@@ -1,11 +1,19 @@
-import pytest
+# pylint: disable=line-too-long
+
+"""
+placeholder docstring
+"""
+
 import json
-import sys
-from io import StringIO
 from contextlib import redirect_stdout
+from io import StringIO
+
+import pytest
+
 import cac_core as cac
 
 class TestOutput:
+    """Test suite for the Output class."""
     @pytest.fixture
     def sample_models(self, sample_data):
         """Create sample models for testing output."""
