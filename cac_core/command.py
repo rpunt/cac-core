@@ -1,5 +1,3 @@
-#!/usr/bin/env python
-
 """
 Command module for the CAC Core package.
 
@@ -9,8 +7,6 @@ common functionality that all commands should implement.
 """
 
 import abc
-# import argparse
-# import os
 import logging
 
 
@@ -40,23 +36,6 @@ class Command(metaclass=abc.ABCMeta):
         Args:
             parser (ArgumentParser): The argument parser to add arguments to
         """
-        # placeholders for when we start inter-command communication
-        # has_suppress = any(action.dest == 'suppress_output' for action in parser._actions)
-        # if not has_suppress:
-        #     parser.add_argument(
-        #         "--suppress-output",
-        #         help="Suppress output",
-        #         action="store_true",
-        #         default=False,
-        #     )
-        # has_external = any(action.dest == 'external_call' for action in parser._actions)
-        # if not has_external:
-        #     parser.add_argument(
-        #         "--external-call",
-        #         help="External call",
-        #         action="store_true",
-        #         default=False,
-        #     )
         has_output = any(action.dest == 'output' for action in parser._actions)
         if not has_output:
             parser.add_argument(
@@ -78,17 +57,8 @@ class Command(metaclass=abc.ABCMeta):
                 default=False
             )
 
-    # # @abc.abstractmethod
-    # def setup_parser(self, cls, parser):
-    #     """
-    #     Set up command-specific arguments for the parser.
 
-    #     This abstract method must be implemented by all command subclasses.
 
-    #     Args:
-    #         parser (ArgumentParser): The argument parser to add arguments to
-    #     """
-    #     pass
 
     @abc.abstractmethod
     def execute(self, args):
@@ -100,3 +70,53 @@ class Command(metaclass=abc.ABCMeta):
         Args:
             args (dict): Dictionary of parsed command-line arguments
         """
+        raise NotImplementedError("Command subclasses must implement execute()")
+
+    def validate_args(self, args: Dict[str, Any]) -> bool:
+        """
+        Validate command arguments before execution.
+
+        Args:
+            args (dict): Dictionary of parsed command-line arguments
+
+        Raises:
+            CommandError: If arguments are invalid
+
+        Returns:
+            bool: True if arguments are valid
+        """
+        # Base implementation does nothing, subclasses can override
+        return True
+
+    def safe_execute(
+        self, args: Dict[str, Any]
+    ) -> Tuple[bool, Union[Any, CommandError]]:
+        """
+        Safely execute the command with exception handling.
+
+        Args:
+            args (dict): Dictionary of parsed command-line arguments
+
+        Returns:
+            tuple: (success, result_or_error)
+        """
+        try:
+            # Set log level if verbose flag is present
+            if args.get("verbose", False):
+                self.log.setLevel(logging.DEBUG)
+
+            # Validate arguments first
+            self.validate_args(args)
+
+            # Execute the command
+            result = self.execute(args)
+            return True, result
+
+        except CommandError as e:
+            self.log.error(e.message)
+            return False, e
+
+        except Exception as e:
+            # Catch unexpected exceptions
+            self.log.exception(f"Unexpected error executing {self.__class__.__name__}")
+            return False, CommandError(f"Unexpected error: {str(e)}")
