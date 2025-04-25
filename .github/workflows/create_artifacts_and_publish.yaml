@@ -50,7 +50,7 @@ jobs:
     # Dedicated environments with protections for publishing are strongly recommended.
     environment:
       name: pypi
-      url: https://pypi.org/p/cac-jira
+      url: https://pypi.org/p/cac-core
 
     steps:
       - name: Retrieve release distributions
