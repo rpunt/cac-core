@@ -85,10 +85,11 @@ class Output:
         if table_options is None:
             table_options = {}
 
-        if self.opts['output'] == 'json':
+        output_format = self._get_param("output", "table")
+        if output_format == 'json':
             self.__output_to_json(data_models)
 
-        if self.opts['output'] == 'table':
+        if output_format == 'table':
             # For table output, resolve models (flatten complex structures)
             data_models = list(data_models) if isinstance(data_models, list) else [data_models]
             if not data_models:
@@ -96,6 +97,31 @@ class Output:
                 return
             self.__resolve_models(data_models)
             self.__output_to_table(data_models, table_options)
+
+    def _get_param(self, key, default=None):
+        """
+        Safely get a parameter value from self.opts, handling both dict and Namespace types.
+
+        Args:
+            key (str): Parameter key to look up
+            default: Default value if key not found
+
+        Returns:
+            Value of the parameter or default
+        """
+        if self.opts is None:
+            return default
+
+        # Handle Namespace objects
+        if hasattr(self.opts, "__dict__"):
+            return getattr(self.opts, key, default)
+
+        # Handle dictionary objects
+        elif isinstance(self.opts, dict):
+            return self.opts.get(key, default)
+
+        # Fallback
+        return default
 
     def __create_logger(self):
         logger = logging.getLogger("OutputTable")
@@ -143,6 +169,7 @@ class Output:
                 elif isinstance(v, list):
                     formatted_list = ', '.join([json.dumps(x) if hasattr(x, 'to_dict') else str(x) for x in v])
                     getattr(model, f"{k}=")(formatted_list)
+
 
 # Example usage
 if __name__ == "__main__":
