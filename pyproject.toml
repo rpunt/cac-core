@@ -1,12 +1,21 @@
-[tool.poetry]
+[project]
 name = "cac-core"
 version = "0.3.0"
 description = ""
-authors = ["Ryan Punt <ryan@mirum.org>"]
-license = "MIT"
 readme = "README.md"
-homepage = "https://mirum.org/cac-core/"
-repository = "https://github.com/rpunt/cac-core"
+license = "MIT"
+requires-python = ">=3.9,<4.0"
+authors = [
+    {name = "Ryan Punt", email = "ryan@mirum.org"}
+]
+dependencies = [
+    "logger>=1.4",
+    "tabulate>=0.9.0",
+    "requests>=2.32.3",
+    "pyyaml>=6.0.2",
+    "keyring>=25.6.0"
+]
+keywords = ["api", "framework", "cli", "command-lint", "python", "cli-tool"]
 classifiers = [
     "Programming Language :: Python :: 3",
     "License :: OSI Approved :: MIT License",
@@ -16,16 +25,13 @@ classifiers = [
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12"
 ]
-packages = [{include = "cac_core"}]
-keywords = ["api", "framework", "cli", "command-lint", "python", "cli-tool"]
 
-[tool.poetry.dependencies]
-python = "^3.9"
-logger = "^1.4"
-tabulate = "^0.9.0"
-requests = "^2.32.3"
-pyyaml = "^6.0.2"
-keyring = "^25.6.0"
+[project.urls]
+homepage = "https://mirum.org/cac-core/"
+repository = "https://github.com/rpunt/cac-core"
+
+[tool.poetry]
+packages = [{include = "cac_core"}]
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.3.5"
