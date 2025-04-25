@@ -1,9 +1,16 @@
-import pytest
-import json
+# pylint: disable=no-member
+
+"""
+Test suite for the CredentialManager class in the cac_core module.
+This module contains unit tests for the CredentialManager class, which
+handles credential storage and retrieval using the keyring library.
+"""
+
 import cac_core as cac
 
 
 class TestModel:
+    """Test suite for the Model class."""
     def test_model_creation(self, sample_data):
         """Test creating a model from data."""
         model = cac.model.Model(sample_data)

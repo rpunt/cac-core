@@ -12,13 +12,6 @@ import json
 import logging
 import tabulate
 
-class ColumnFormatter:
-    def __init__(self, key, formatter=None, header=None, width=None):
-        self.key = key
-        self.formatter = formatter or (lambda x: x)
-        self.header = header or key
-        self.width = width
-
 class Output:
     """
     Handles the formatting and display of data in the CAC framework.
@@ -28,51 +21,72 @@ class Output:
     It can also convert models to dictionaries for external API calls.
 
     Attributes:
-        opts (dict): Options that control output behavior
+        params (dict): Options that control output behavior
         logger (Logger): Logger instance for output messages
     """
 
-    def __init__(self, opts):
-        self.opts = opts
+    def __init__(self, params):
+        self.opts = params
         self.logger = self.__create_logger()
 
     def print_models(self, data_models, table_options=None):
         """
-        Print models as a table or JSON based on output configuration.
+        Display data models in the configured output format (table or JSON).
 
-        This method handles the display of model data in the format specified by the
-        output options. For JSON output, it directly converts models to JSON without
-        flattening complex structures. For table output, it flattens nested structures
-        and formats data into a tabular display.
+        This method formats and displays the provided models according to the
+        output format specified in the params dictionary. It handles both
+        individual models and collections of models.
+
+        For JSON output:
+        - Models are converted to dictionaries and output as JSON strings
+        - Nested structures are preserved in their original form
+
+        For table output:
+        - Complex nested structures are flattened for tabular display
+        - Headers are derived from the first model's keys
+        - Displays a row count after the table
 
         Args:
-            data_models (list or Model): Models to print. Can be a single Model instance
-                or a list of Model instances.
-            table_options (dict, optional): Options for table formatting with keys:
+            data_models (Model or list): One or more models to display. Can be a single
+                Model instance or a list of Model instances.
+            table_options (dict, optional): Options for configuring table output:
+                - headers: Custom header mappings (dict)
+                - exclude: List of columns to exclude
                 - formatters: Dict mapping column names to formatter functions
-                - headers: Custom column headers mapping
-                - width: Fixed column width settings
-                - exclude: Columns to exclude from output
+                - width: Dict mapping column names to fixed widths
 
         Returns:
-            None: If output is displayed to console
-            dict: Models as dictionary if external_call and suppress_output are set
+            None: Output is printed directly to stdout
 
-        Examples:
-            >>> output = Output({'output': 'table'})
-            >>> output.print_models([model1, model2])
+        Usage:
+            # Basic usage with table output (default)
+            output = Output({"output": "table"})
+            output.print_models(models)
 
-            >>> output = Output({'output': 'json'})
-            >>> output.print_models(model)
+            # JSON output
+            output = Output({"output": "json"})
+            output.print_models(models)
+
+            # Customized table with formatting options
+            output = Output({"output": "table"})
+            options = {
+                "headers": {"id": "ID", "name": "Full Name"},
+                "exclude": ["internal_id", "metadata"]
+            }
+            output.print_models(models, options)
+
+            # Handle single model case
+            output.print_models(single_model)
+
+        Note:
+            If no models are provided for table output, a "No results were found"
+            message will be logged and nothing will be displayed.
         """
         if table_options is None:
             table_options = {}
 
-        if self.opts.get("external_call", False): # and (self.opts.get("suppress_output", False)):
-            return self.__models_to_dict(data_models)
-
         if self.opts['output'] == 'json':
-            self.__models_to_json(data_models)
+            self.__output_to_json(data_models)
 
         if self.opts['output'] == 'table':
             # For table output, resolve models (flatten complex structures)
@@ -101,7 +115,7 @@ class Output:
             else data_models.to_dict()
         )
 
-    def __models_to_json(self, data_models):
+    def __output_to_json(self, data_models):
         print(json.dumps(self.__models_to_dict(data_models)))
 
     def __output_to_table(self, data_models, _table_options):
