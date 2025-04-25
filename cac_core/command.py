@@ -8,7 +8,16 @@ common functionality that all commands should implement.
 
 import abc
 import logging
+from typing import Any, Dict, Optional, Tuple, Union #, List
 
+
+class CommandError(Exception):
+    """Exception raised for command execution errors."""
+
+    def __init__(self, message: str, exit_code: int = 1):
+        self.message = message
+        self.exit_code = exit_code
+        super().__init__(self.message)
 
 class Command(metaclass=abc.ABCMeta):
     """
@@ -22,14 +31,14 @@ class Command(metaclass=abc.ABCMeta):
         log (Logger): Logger instance for the command
     """
 
-    def __init__(self):
+    def __init__(self, log_level: Optional[int] = None):
         """
         Initialize the command.
         """
         self.log = logging.getLogger(self.__class__.__name__)
 
     @staticmethod
-    def define_common_arguments(parser):
+    def define_common_arguments(parser) -> None:
         """
         Defines common arguments for all command parsers.
 
@@ -57,11 +66,26 @@ class Command(metaclass=abc.ABCMeta):
                 default=False
             )
 
+    @abc.abstractmethod
+    def define_arguments(self, parser) -> Any:
+        """
+        Define command-specific arguments.
 
+        This method must be implemented by subclasses to add
+        command-specific arguments to the parser.
 
+        Args:
+            parser: The argument parser to add arguments to
+
+        Returns:
+            The updated argument parser
+        """
+        # Add common arguments first
+        self.define_common_arguments(parser)
+        return parser
 
     @abc.abstractmethod
-    def execute(self, args):
+    def execute(self, args: Dict[str, Any]) -> Any:
         """
         Execute the command with the given arguments.
 

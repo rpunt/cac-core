@@ -85,11 +85,8 @@ class Output:
         if table_options is None:
             table_options = {}
 
-        if self.opts.get("external_call", False): # and (self.opts.get("suppress_output", False)):
-            return self.__models_to_dict(data_models)
-
         if self.opts['output'] == 'json':
-            self.__models_to_json(data_models)
+            self.__output_to_json(data_models)
 
         if self.opts['output'] == 'table':
             # For table output, resolve models (flatten complex structures)
@@ -118,7 +115,7 @@ class Output:
             else data_models.to_dict()
         )
 
-    def __models_to_json(self, data_models):
+    def __output_to_json(self, data_models):
         print(json.dumps(self.__models_to_dict(data_models)))
 
     def __output_to_table(self, data_models, _table_options):

@@ -100,8 +100,11 @@ class Config:
             dict: Default configuration or empty dict if not found
         """
         default_config = {}
-        module_path = sys.modules[module_name].__file__
-        if not module_path:
+        try:
+            module_path = sys.modules[module_name].__file__
+        except KeyError:
+            # this exception mostly covers testing cases where there's no actual module in the call stack
+            # print(f"Module {module_name} not found in sys.modules.")
             return default_config
 
         module_dir = os.path.dirname(module_path)
@@ -115,9 +118,7 @@ class Config:
                     if loaded_config:
                         default_config.update(loaded_config)
             except Exception as e:
-                print(
-                    f"Failed to load default config from {default_config_file}: {e}"
-                )
+                print(f"Failed to load default config from {default_config_file}: {e}")
 
         return default_config
 
