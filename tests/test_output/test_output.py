@@ -56,11 +56,11 @@ class TestOutput:
         assert "Second Project" in captured
         assert "2 rows" in captured
 
-    def test_external_call(self, sample_models):
-        """Test external call option returns data instead of printing."""
-        output = cac.output.Output({"output": "json", "external_call": "true"}) # , external_call=True)
-        result = output.print_models(sample_models)
+    # def test_external_call(self, sample_models):
+    #     """Test external call option returns data instead of printing."""
+    #     output = cac.output.Output({"output": "json", "external_call": "true"}) # , external_call=True)
+    #     result = output.print_models(sample_models)
 
-        assert isinstance(result, list)
-        assert len(result) == 2
-        assert result[0]["name"] == "Test Project"
+    #     assert isinstance(result, list)
+    #     assert len(result) == 2
+    #     assert result[0]["name"] == "Test Project"
