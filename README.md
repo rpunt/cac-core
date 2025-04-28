@@ -2,6 +2,8 @@
 
 An API client library providing essential functionality for command-line applications.
 
+This project uses [UV](https://github.com/astral-sh/uv) for dependency management.
+
 ## Overview
 
 CAC Core (`cac-core`) is a Python library that provides common utilities for building robust command-line applications. It includes modules for commands, configuration management, standardized logging, data modeling, and formatted output display.
@@ -17,11 +19,7 @@ CAC Core (`cac-core`) is a Python library that provides common utilities for bui
 ## Installation
 
 ```bash
-# Install from PyPI
 pip install cac-core
-
-# Or install with Poetry
-poetry add cac-core
 ```
 
 ## Usage
@@ -131,15 +129,21 @@ output.print_models(models)
 ## Development
 
 ```bash
+pip install uv
+
 # Clone the repository
 git clone https://github.com/rpunt/cac_core.git
 cd cac_core
+uv venv
+uv pip install -e .
 
 # Install dependencies
-poetry install
+uv pip install -e ".[dev]"
+uv pip install -e ".[test]"
+uv pip install -e ".[lint]"
 
 # Run tests
-poetry run pytest
+uv run pytest
 ```
 
 ## Project Structure

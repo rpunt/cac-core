@@ -1,60 +1,65 @@
 {
-    "version": "0.2.0",
-    "configurations": [
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Python: Current File",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${file}",
+      "console": "integratedTerminal",
+      "justMyCode": false,
+      "env": {
+        "PYTHONPATH": "${workspaceFolder}"
+      }
+    },
+    {
+      "name": "Python: pytest",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "pytest",
+      "cwd": "${workspaceFolder}",
+      "args": [
+        "-v"
+      ],
+      "python": "${workspaceFolder}/.venv/bin/python",
+      "console": "integratedTerminal",
+      "justMyCode": false
+    },
+    {
+      "name": "Python: Attach",
+      "type": "debugpy",
+      "request": "attach",
+      "connect": {
+        "host": "localhost",
+        "port": 5678
+      },
+      "pathMappings": [
         {
-            "name": "Python: Current File",
-            "type": "debugpy",
-            "request": "launch",
-            "program": "${file}",
-            "console": "integratedTerminal"
-        },
-        {
-            "name": "Python: pytest",
-            "type": "debugpy",
-            "request": "launch",
-            "module": "pytest",
-            "console": "integratedTerminal",
-            "justMyCode": true,
-            "args": [
-                "-v",
-                "${workspaceFolder}/tests"
-            ]
-        },
-        {
-            "name": "Python: Attach",
-            "type": "debugpy",
-            "request": "attach",
-            "connect": {
-                "host": "localhost",
-                "port": 5678
-            },
-            "pathMappings": [
-                {
-                    "localRoot": "${workspaceFolder}",
-                    "remoteRoot": "/path/to/remote/source"
-                }
-            ]
-        },
-        // {
-        //     "name": "Python: Module",
-        //     "type": "python",
-        //     "request": "launch",
-        //     "module": "module.name",
-        //     "console": "integratedTerminal"
-        // },
-        {
-            "name": "Python: Unittest",
-            "type": "debugpy",
-            "request": "launch",
-            "program": "${workspaceFolder}",
-            "console": "integratedTerminal",
-            "args": [
-                "-m",
-                "unittest",
-                "discover",
-                "-s",
-                "tests"
-            ]
+          "localRoot": "${workspaceFolder}",
+          "remoteRoot": "/path/to/remote/source"
         }
-    ]
+      ]
+    },
+    // {
+    //     "name": "Python: Module",
+    //     "type": "python",
+    //     "request": "launch",
+    //     "module": "module.name",
+    //     "console": "integratedTerminal"
+    // },
+    {
+      "name": "Python: Unittest",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${workspaceFolder}",
+      "console": "integratedTerminal",
+      "args": [
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tests"
+      ]
+    }
+  ]
 }

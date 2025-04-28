@@ -18,40 +18,37 @@ dependencies = [
 keywords = ["api", "framework", "cli", "command-lint", "python", "cli-tool"]
 classifiers = [
     "Programming Language :: Python :: 3",
-    "License :: OSI Approved :: MIT License",
-    "Operating System :: OS Independent",
-    "Programming Language :: Python :: 3.9",
-    "Programming Language :: Python :: 3.10",
-    "Programming Language :: Python :: 3.11",
-    "Programming Language :: Python :: 3.12"
+    "Operating System :: OS Independent"
 ]
 
 [project.urls]
 homepage = "https://mirum.org/cac-core/"
 repository = "https://github.com/rpunt/cac-core"
 
-[tool.poetry]
-packages = [{include = "cac_core"}]
-
-[tool.poetry.group.dev.dependencies]
-pytest = "^8.3.5"
-pytest-cov = "^6.1.1"
-
-[tool.poetry.group.test.dependencies]
-pytest = "^8.3.5"
-
-[tool.poetry.group.lint.dependencies]
-black = "^23.3.0"
-isort = "^5.12.0"
-pylint = "^2.17.0"
-
-[tool.poetry.group.docs.dependencies]
-sphinx = "^7.0.0"
-sphinx-rtd-theme = "^1.2.0"
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.3.5",
+    "pytest-cov>=6.1.1",
+]
+test = [
+    "pytest>=8.3.5",
+]
+lint = [
+    "black>=23.3.0",
+    "isort>=5.12.0",
+    "pylint>=2.17.0",
+]
+docs = [
+    "sphinx>=7.0.0",
+    "sphinx-rtd-theme>=1.2.0",
+]
 
 [build-system]
-requires = ["poetry-core"]
-build-backend = "poetry.core.masonry.api"
+requires = ["setuptools>=42", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+packages = ["cac_core"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
