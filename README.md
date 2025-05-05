@@ -126,6 +126,52 @@ output = cac.output.Output({"output": "json"})
 output.print_models(models)
 ```
 
+### Update Checking
+
+```python
+import cac_core as cac
+
+# Check for updates to your package (using PyPI by default)
+checker = cac.updatechecker.UpdateChecker("your-package-name")
+status = checker.check_for_updates()
+
+# Notify users if an update is available
+if status["update_available"]:
+    print(f"Update available: {status['current_version']} → {status['latest_version']}")
+
+# Convenience function for quick checks
+cac.updatechecker.check_package_for_updates("your-package-name", notify=True)
+
+# Configure source options
+# PyPI (default)
+pypi_checker = cac.updatechecker.UpdateChecker(
+    "your-package-name",
+    source="pypi"  # This is the default, so it's optional
+)
+
+# GitHub
+github_checker = cac.updatechecker.UpdateChecker(
+    "your-package-name",
+    source="github",
+    repo="username/repo-name"
+)
+
+# Add update checking to your CLI application
+def main():
+    # Check for updates once per day
+    from datetime import timedelta
+    checker = cac.updatechecker.UpdateChecker(
+        "your-package-name",
+        check_interval=timedelta(days=1)
+    )
+
+    # Only notify if update is available, otherwise be quiet
+    checker.check_for_updates()
+    checker.notify_if_update_available(quiet=True)
+
+    # Rest of your application...
+```
+
 ## Development
 
 ```bash
