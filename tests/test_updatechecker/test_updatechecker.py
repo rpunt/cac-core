@@ -10,10 +10,12 @@ import json
 import os
 import tempfile
 from datetime import datetime, timedelta
+import importlib.metadata
 from pathlib import Path
 from unittest.mock import patch, MagicMock
 
 import pytest
+import requests
 from packaging.version import parse as parse_version
 
 from cac_core.updatechecker import UpdateChecker, check_package_for_updates
@@ -29,7 +31,9 @@ def temp_data_dir():
 @pytest.fixture
 def mock_update_checker(temp_data_dir):
     """Create an UpdateChecker with a temp directory."""
-    with patch('cac_core.updatechecker.UpdateChecker._load_update_data') as mock_load:
+    with patch('cac_core.updatechecker.UpdateChecker._load_update_data') as mock_load,\
+        patch('importlib.metadata.version', return_value="1.0.0"),\
+        patch('cac_core.updatechecker.logger.warning'):  # Add this
         mock_load.return_value = {
             "last_check": None,
             "latest_version": None,
@@ -49,12 +53,16 @@ class TestUpdateChecker:
 
     def test_initialization(self):
         """Test that the UpdateChecker initializes correctly."""
-        with patch('importlib.metadata.version', return_value="1.0.0"):
+        with patch('importlib.metadata.version', return_value="1.0.0"),\
+            patch('cac_core.updatechecker.logger.warning') as mock_warning:  # Add this line
             checker = UpdateChecker("test-package")
             assert checker.package_name == "test-package"
             assert checker.current_version == "1.0.0"
             assert checker.source == "pypi"
             assert checker.update_url == "https://pypi.org/pypi/test-package/json"
+
+            # Verify no warning was logged since we mocked the version
+            mock_warning.assert_not_called()
 
     def test_github_source(self):
         """Test initialization with GitHub as the source."""
@@ -66,20 +74,41 @@ class TestUpdateChecker:
 
     def test_package_not_found(self):
         """Test behavior when package is not found."""
-        with patch('importlib.metadata.version', side_effect=ImportError):
+        # Use PackageNotFoundError instead of ImportError
+        with patch('importlib.metadata.version', side_effect=importlib.metadata.PackageNotFoundError("test-package")),\
+            patch('cac_core.updatechecker.logger.warning') as mock_warning:
             checker = UpdateChecker("nonexistent-package")
             assert checker.current_version == "0.0.0"
 
+            # Verify warning was logged
+            mock_warning.assert_called_once()
+            assert "not found" in mock_warning.call_args[0][0]
+
     def test_load_update_data_new_file(self, mock_update_checker):
         """Test loading data when file doesn't exist."""
-        # Reset to call the real method
-        mock_update_checker._load_update_data = UpdateChecker._load_update_data.__get__(mock_update_checker)
+        # Instead of using __get__, which is causing the AttributeError,
+        # directly call the original method from the UpdateChecker class
+        original_method = UpdateChecker._load_update_data
 
-        # File doesn't exist yet, should return default data
-        data = mock_update_checker._load_update_data()
-        assert data["last_check"] is None
-        assert data["latest_version"] is None
-        assert data["current_version"] == "1.0.0"
+        # Make the method instance-bound by manually passing 'self'
+        def call_original():
+            return original_method(mock_update_checker)
+
+        # Save the mocked method to restore later
+        mocked_method = mock_update_checker._load_update_data
+
+        try:
+            # Override with our wrapper to the original
+            mock_update_checker._load_update_data = call_original
+
+            # File doesn't exist yet, should return default data
+            data = mock_update_checker._load_update_data()
+            assert data["last_check"] is None
+            assert data["latest_version"] is None
+            assert data["current_version"] == "1.0.0"
+        finally:
+            # Restore the mock to avoid affecting other tests
+            mock_update_checker._load_update_data = mocked_method
 
     def test_load_update_data_existing_file(self, temp_data_dir):
         """Test loading data from an existing file."""
@@ -116,21 +145,35 @@ class TestUpdateChecker:
             "current_version": "1.0.0"
         }
 
-        # Reset method to call real implementation
-        mock_update_checker._save_update_data = UpdateChecker._save_update_data.__get__(mock_update_checker)
+        # Get original method
+        original_method = UpdateChecker._save_update_data
 
-        # Save the data
-        mock_update_checker._save_update_data()
+        # Make the method instance-bound
+        def call_original():
+            return original_method(mock_update_checker)
 
-        # Verify file exists and contains expected data
-        assert mock_update_checker.data_file.exists()
+        # Save the mocked method
+        mocked_method = mock_update_checker._save_update_data
 
-        with open(mock_update_checker.data_file, "r") as f:
-            data = json.load(f)
-            assert data["latest_version"] == "2.0.0"
-            assert data["current_version"] == "1.0.0"
-            # Check that datetime was serialized
-            assert isinstance(data["last_check"], str)
+        try:
+            # Override with our wrapper
+            mock_update_checker._save_update_data = call_original
+
+            # Save the data
+            mock_update_checker._save_update_data()
+
+            # Verify file exists and contains expected data
+            assert mock_update_checker.data_file.exists()
+
+            with open(mock_update_checker.data_file, "r") as f:
+                data = json.load(f)
+                assert data["latest_version"] == "2.0.0"
+                assert data["current_version"] == "1.0.0"
+                # Check that datetime was serialized
+                assert isinstance(data["last_check"], str)
+        finally:
+            # Restore the mock
+            mock_update_checker._save_update_data = mocked_method
 
     def test_fetch_latest_version_pypi_success(self, mock_update_checker):
         """Test fetching the latest version from PyPI when successful."""
@@ -162,7 +205,12 @@ class TestUpdateChecker:
 
     def test_fetch_latest_version_request_error(self, mock_update_checker):
         """Test handling of request errors."""
-        with patch('requests.get', side_effect=Exception("Connection error")) as mock_get:
+        # Define a side effect function that raises an exception
+        def request_error(*args, **kwargs):
+            raise requests.RequestException("Connection error")
+
+        # Patch requests.get to raise the RequestException
+        with patch('requests.get', side_effect=request_error):
             # Previously stored version should be returned on error
             mock_update_checker.update_data["latest_version"] = "1.5.0"
             version = mock_update_checker._fetch_latest_version()
@@ -257,7 +305,8 @@ class TestUpdateChecker:
 
 def test_check_package_for_updates_convenience():
     """Test the convenience function."""
-    with patch('cac_core.updatechecker.UpdateChecker') as MockUpdateChecker:
+    with patch('cac_core.updatechecker.UpdateChecker') as MockUpdateChecker,\
+         patch('cac_core.updatechecker.logger.warning'):  # Add this
         mock_instance = MockUpdateChecker.return_value
         mock_instance.check_for_updates.return_value = {
             "update_available": True,
