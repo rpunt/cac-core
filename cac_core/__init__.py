@@ -8,6 +8,7 @@ from . import credentialmanager
 from . import logger
 from . import model
 from . import output
+from . import updatechecker
 
 __all__ = [
     "command",
@@ -16,4 +17,5 @@ __all__ = [
     "logger",
     "model",
     "output",
+    "updatechecker",
 ]
