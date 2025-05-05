@@ -192,7 +192,7 @@ class UpdateChecker:
             logger.info(f"  Update with: pip install --upgrade {self.package_name}")
             return True
         elif not quiet:
-            logger.info(f"{self.package_name} is up to date ({status['current_version']}).")
+            logger.debug(f"{self.package_name} is up to date ({status['current_version']}).")
 
         return False
 

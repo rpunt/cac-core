@@ -7,6 +7,7 @@ handles various error conditions gracefully, and properly notifies users.
 """
 
 import json
+import logging
 import os
 import tempfile
 from datetime import datetime, timedelta
@@ -279,28 +280,43 @@ class TestUpdateChecker:
         with pytest.raises(Exception):
             mock_update_checker.get_update_status()
 
-    def test_notify_if_update_available(self, mock_update_checker, caplog):
-        """Test update notification."""
-        caplog.clear()
-        # Test with update available
-        mock_update_checker.update_data["latest_version"] = "2.0.0"
+    def test_notify_if_update_available(self, mock_update_checker):
+        """Test update notification using direct logger mocking."""
+        # Instead of relying on caplog, directly mock the logger
+        with patch('cac_core.updatechecker.logger') as mock_logger:
+            # Test with update available
+            mock_update_checker.current_version = "1.0.0"
+            mock_update_checker.update_data["latest_version"] = "2.0.0"
 
-        result = mock_update_checker.notify_if_update_available()
-        assert result is True
-        assert "Update available" in caplog.text
+            result = mock_update_checker.notify_if_update_available()
+            assert result is True
+            # Check that info messages were logged for update available
+            assert mock_logger.info.called
+            assert any('Update available' in call[0][0] for call in mock_logger.info.call_args_list)
 
-        # Test with no update and quiet=False
-        caplog.clear()
-        mock_update_checker.current_version = "3.0.0"
-        result = mock_update_checker.notify_if_update_available()
-        assert result is False
-        assert "up to date" in caplog.text
+            # Reset mock before next test
+            mock_logger.reset_mock()
 
-        # Test with no update and quiet=True
-        caplog.clear()
-        result = mock_update_checker.notify_if_update_available(quiet=True)
-        assert result is False
-        assert "up to date" not in caplog.text
+            # Test with no update and quiet=False
+            mock_update_checker.current_version = "3.0.0"
+            mock_update_checker.update_data["latest_version"] = "2.0.0"
+            result = mock_update_checker.notify_if_update_available()
+            assert result is False
+
+            # Check that debug message was logged for up-to-date
+            assert mock_logger.debug.called
+            assert any(mock_update_checker.package_name in call[0][0]
+                    for call in mock_logger.debug.call_args_list)
+
+            # Reset mock before next test
+            mock_logger.reset_mock()
+
+            # Test with no update and quiet=True
+            result = mock_update_checker.notify_if_update_available(quiet=True)
+            assert result is False
+            # Verify no logs when quiet=True
+            assert not mock_logger.debug.called
+            assert not mock_logger.info.called
 
 
 def test_check_package_for_updates_convenience():
