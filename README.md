@@ -15,6 +15,7 @@ CAC Core (`cac-core`) is a Python library that provides common utilities for bui
 - **Standardized Logging**: Consistent, configurable logging across applications
 - **Data Modeling**: Dynamic attribute creation and manipulation with dictionary-like access
 - **Output Formatting**: Display data as tables or JSON with customization options
+- **Update Checking**: Automatically check for package updates from PyPI or GitHub, with configurable intervals and notification options
 
 ## Installation
 
