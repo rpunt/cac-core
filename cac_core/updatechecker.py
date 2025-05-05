@@ -192,13 +192,13 @@ class UpdateChecker:
             logger.info(f"  Update with: pip install --upgrade {self.package_name}")
             return True
         elif not quiet:
-            logger.debug(f"{self.package_name} is up to date ({status['current_version']}).")
+            logger.info(f"{self.package_name} is up to date ({status['current_version']}).")
 
         return False
 
 
 # Convenience function for quick checks
-def check_package_for_updates(package_name, notify=True, force=False, quiet=False):
+def check_package_for_updates(package_name, notify=True, force=False, quiet=True):
     """
     Check a package for updates.
 
