@@ -68,9 +68,23 @@ class UpdateChecker:
             self.source = 'pypi'  # Default to PyPI if GitHub not properly configured
 
         # Set up data storage
-        self.data_dir = Path(os.path.expanduser("~/.cac"))
-        self.data_dir.mkdir(exist_ok=True)
-        self.data_file = self.data_dir / f"{package_name}_update.json"
+        try:
+            # Use a more platform-independent approach for determining config location
+            if os.name == 'nt':  # Windows
+                app_data = os.environ.get('APPDATA', os.path.expanduser('~'))
+                self.data_dir = Path(app_data) / package_name
+            else:  # macOS, Linux, etc.
+                self.data_dir = Path(os.path.expanduser(os.path.join("~", ".config", package_name)))
+
+            self.data_dir.mkdir(exist_ok=True, parents=True)
+        except (PermissionError, OSError) as e:
+            logger.warning(f"Could not create data directory {self.data_dir}: {e}")
+            # Fall back to a temporary directory
+            import tempfile
+            self.data_dir = Path(tempfile.gettempdir()) / package_name
+            self.data_dir.mkdir(exist_ok=True, parents=True)
+
+        self.data_file = self.data_dir / "update.json"
 
         # Load existing data
         self.update_data = self._load_update_data()
@@ -79,7 +93,7 @@ class UpdateChecker:
         """Load update data from the local file."""
         try:
             if self.data_file.exists():
-                with open(self.data_file, "r") as f:
+                with open(self.data_file, "r", encoding="utf-8") as f:
                     data = json.load(f)
                     # Convert string to datetime
                     if data.get("last_check"):
@@ -87,6 +101,8 @@ class UpdateChecker:
                     return data
         except (json.JSONDecodeError, ValueError) as e:
             logger.debug(f"Error loading update data: {e}")
+        except UnicodeDecodeError as e:
+            logger.debug(f"Encoding error reading update data: {e}")
 
         # Return default data if file doesn't exist or has errors
         return {
@@ -103,8 +119,8 @@ class UpdateChecker:
             if save_data.get("last_check"):
                 save_data["last_check"] = save_data["last_check"].isoformat()
 
-            with open(self.data_file, "w") as f:
-                json.dump(save_data, f)
+            with open(self.data_file, "w", encoding="utf-8") as f:
+                json.dump(save_data, f, indent=4, ensure_ascii=False)
         except Exception as e:
             logger.debug(f"Error saving update data: {e}")
 
