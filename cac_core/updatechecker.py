@@ -37,7 +37,7 @@ class UpdateChecker:
         source (str): The source to check for updates ('pypi' or 'github')
     """
 
-    def __init__(self, package_name, check_interval=timedelta(days=1), source='pypi', repo=None):
+    def __init__(self, package_name, check_interval=timedelta(hours=1), source='pypi', repo=None):
         """
         Initialize the UpdateChecker.
 
