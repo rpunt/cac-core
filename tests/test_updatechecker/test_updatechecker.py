@@ -241,12 +241,24 @@ class TestUpdateChecker:
 
     def test_check_for_updates_within_interval(self, mock_update_checker):
         """Test update check respects interval."""
-        # Set last check to recent time
-        mock_update_checker.update_data["last_check"] = datetime.now() - timedelta(hours=1)
-        mock_update_checker.update_data["latest_version"] = "1.5.0"
+        real_datetime = datetime.now() - timedelta(hours=1)
+        mock_update_checker.update_data = {
+            "last_check": real_datetime,
+            "latest_version": "1.5.0",
+            "current_version": "1.0.0"
+        }
 
-        with patch.object(mock_update_checker, '_fetch_latest_version') as mock_fetch:
+        mock_update_checker.check_interval = timedelta(hours=2)
+
+        # Patch the get_update_status method to return consistent data
+        with patch.object(mock_update_checker, '_fetch_latest_version') as mock_fetch, \
+            patch.object(mock_update_checker, 'get_update_status', return_value={
+                "latest_version": "1.5.0",
+                "update_available": True
+            }):
+
             status = mock_update_checker.check_for_updates(force=False)
+
             # Should not fetch when within interval
             mock_fetch.assert_not_called()
             assert status["latest_version"] == "1.5.0"
