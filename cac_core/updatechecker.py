@@ -137,7 +137,18 @@ class UpdateChecker:
         last_check = self.update_data.get("last_check")
 
         # Check if we need to perform an update check
-        if force or not last_check or (datetime.now() - last_check) > self.check_interval:
+        need_check = force or not last_check
+        if not need_check and isinstance(last_check, datetime):
+            try:
+                need_check = (datetime.now() - last_check) > self.check_interval
+            except (TypeError, ValueError):
+                # If comparison fails, force a check
+                need_check = True
+        elif not need_check:
+            # If last_check exists but isn't a datetime, force a check
+            need_check = True
+
+        if need_check:
             latest_version = self._fetch_latest_version()
 
             # Update the data
