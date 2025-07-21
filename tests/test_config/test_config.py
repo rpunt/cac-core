@@ -1,4 +1,6 @@
 #!/usr/bin/env python
+# pylint: disable=protected-access
+
 """
 Tests for the config module.
 
@@ -7,6 +9,7 @@ configuration data from YAML files, and properly handles environment variables.
 """
 
 import os
+import shutil
 import tempfile
 from pathlib import Path
 import pytest
@@ -95,20 +98,21 @@ class TestConfig:
         assert config.config['api']['url'] == 'https://api.example.com'
         assert config.config['options']['timeout'] == 30
 
-    def test_get_existing_value(self, temp_config_file):
-        """Test getting an existing value."""
-        config = Config('test-app')
-        config.config_file = Path(temp_config_file)
-        config.config = config._load_config()  # Changed from data to config
-        assert config.get('api.url') == 'https://api.example.com'
-        assert config.get('options.timeout') == 30
-
-    def test_get_nested_value(self, temp_config_file):
-        """Test getting a nested value using dot notation."""
+    @pytest.mark.parametrize("key, expected_value", [
+        ('api.url', 'https://api.example.com'),
+        ('options.timeout', 30),
+        ('api.token', 'test-token'),
+        ('feature_flags.enable_logging', True),
+        ('feature_flags.debug_mode', False),
+        ('nonexistent_key', None)
+    ])
+    def test_get_values(self, temp_config_file, key, expected_value):
+        """Test getting various values using parametrized tests."""
         config = Config('test-app')
         config.config_file = Path(temp_config_file)
         config.config = config._load_config()
-        assert config.get('api.token') == 'test-token'
+
+        assert config.get(key) == expected_value
 
     def test_get_nonexistent_value_with_default(self):
         """Test getting a nonexistent value with a default."""
@@ -161,7 +165,7 @@ class TestConfig:
             assert os.path.exists(config_path)
 
             # Load the file to verify contents
-            with open(config_path, 'r') as f:
+            with open(config_path, 'r', encoding='utf-8') as f:
                 saved_data = yaml.safe_load(f)
 
             assert saved_data['api']['url'] == 'https://api.example.com'
@@ -212,8 +216,8 @@ class TestConfig:
                 del os.environ['TEST_APP_NONEXISTENT']
 
     def test_load_nonexistent_file(self):
-        """Test loading a nonexistent file."""
-        nonexistent_path = '/tmp/nonexistent-config-{}.yaml'.format(os.getpid())
+        """Test loading a nonexistent file with _load_config method."""
+        nonexistent_path = f'/tmp/nonexistent-config-{os.getpid()}.yaml'
 
         # Ensure the file doesn't exist
         if os.path.exists(nonexistent_path):
@@ -223,6 +227,78 @@ class TestConfig:
         config.config_file = Path(nonexistent_path)
         config.config = config._load_config()
         assert config.config == {}
+
+    def test_create_config_file_if_not_exists(self):
+        """Test that load() creates a config file if it doesn't exist."""
+        test_dir = tempfile.mkdtemp()
+        try:
+            # Create a unique module name to avoid conflicts
+            module_name = f'test-app-{os.getpid()}'
+
+            # Set up config with a path in our temp directory
+            config = Config(module_name)
+            config_path = os.path.join(test_dir, '.config', module_name, 'config.yaml')
+            config.config_file = config_path
+            config.config_dir = os.path.dirname(config_path)
+
+            # Ensure the file doesn't exist
+            if os.path.exists(config_path):
+                os.unlink(config_path)
+
+            # Load configuration - this should create the file
+            result = config.load(module_name)
+
+            # Verify the file was created
+            assert os.path.exists(config_path), "Config file should be created"
+
+            # Verify file contents
+            with open(config_path, 'r', encoding='utf-8') as f:
+                file_content = yaml.safe_load(f)
+                assert file_content is not None, "Config file should not be empty"
+
+            # Verify the returned config has the path
+            assert result.get('config_file_path') == config_path
+
+        finally:
+            # Clean up temp directory and all its contents
+            shutil.rmtree(test_dir, ignore_errors=True)
+
+    def test_empty_dictionary_written_to_disk(self):
+        """Test that an empty dictionary is correctly written to disk.
+
+        This specifically tests the issue from branch:
+        11-if-config-file-doesnt-exist-an-empty-dictionary-is-written-to-disk
+        """
+        # Create a temporary directory for our test
+        test_dir = tempfile.mkdtemp()
+        try:
+            # Create a config with empty dictionary
+            config = Config('empty-test')
+            config_path = os.path.join(test_dir, 'empty-config.yaml')
+            config.config_file = config_path
+            config.clear()  # Ensure it's empty
+
+            # Save the empty config
+            result = config.save()
+            assert result is True, "Save should succeed"
+
+            # Verify the file exists
+            assert os.path.exists(config_path), "Config file should be created"
+
+            # Verify file contains a valid YAML empty dict
+            with open(config_path, 'r', encoding='utf-8') as f:
+                file_content = yaml.safe_load(f)
+                assert file_content is None or file_content == {}, "Empty config should save as empty dict"
+
+            # Load the empty config into a new object
+            config2 = Config('empty-test')
+            config2.config_file = config_path
+            config2.config = config2._load_config()
+            assert config2.config == {}, "Loaded config should be empty"
+
+        finally:
+            # Clean up
+            shutil.rmtree(test_dir, ignore_errors=True)
 
     def test_load_invalid_yaml(self):
         """Test loading an invalid YAML file."""
@@ -254,10 +330,21 @@ class TestConfig:
             # This should not raise an exception but log an error
             config.save()
 
-    def test_update_from_dict(self, sample_data):
+    def test_update_from_dict(self):
         """Test updating config from a dictionary."""
+        test_data = {
+            'api': {
+                'url': 'https://api.example.com',
+                'token': 'test-token'
+            },
+            'options': {
+                'timeout': 30,
+                'retries': 3
+            }
+        }
+
         config = Config('test-app')
-        config.update(sample_data)
+        config.update(test_data)
 
         assert config.get('api.url') == 'https://api.example.com'
         assert config.get('options.timeout') == 30
@@ -275,14 +362,51 @@ class TestConfig:
 
         assert config.get('level1.level2.level3') == 'value'
 
-    def test_clear_config(self, temp_config_file):
+    def test_clear_config(self):
         """Test clearing the configuration."""
-        config = Config('test-app')
-        config.config_file = Path(temp_config_file)
-        config.config = config._load_config()  # Load the file first
-        assert len(config.config) > 0
-        config.clear()
-        assert config.config == {}
+        with tempfile.NamedTemporaryFile(suffix='.yaml', delete=False) as f:
+            temp_file = f.name
+
+        try:
+            # Create a config and save some initial data to the file
+            initial_config = Config('test-app')
+            initial_config.config_file = temp_file
+            initial_config.set('test', 'value')
+            initial_config.set('another', 'setting')
+            initial_config.save()  # This writes the data to the file
+
+            # Verify the file has content
+            with open(temp_file, 'r', encoding='utf-8') as f:
+                saved_content = yaml.safe_load(f)
+                assert saved_content and len(saved_content) > 0, "File should have initial content"
+
+            # Now create a new config object pointing to the same file
+            config = Config('test-app')
+            config.config_file = temp_file
+
+            # Load the existing data
+            config.config = config._load_config()
+            assert len(config.config) > 0, "Config should be loaded with data"
+
+            # Clear the in-memory config
+            config.clear()
+            assert config.config == {}, "In-memory config should be empty after clear"
+
+            # Verify clearing doesn't affect the file until save is called
+            config2 = Config('test-app')
+            config2.config_file = temp_file
+            config2.config = config2._load_config()
+            assert len(config2.config) > 0, "File should not be cleared until save is called"
+
+            # Now save the empty config and verify it persists
+            config.save()
+            config3 = Config('test-app')
+            config3.config_file = temp_file
+            config3.config = config3._load_config()
+            assert config3.config == {}, "Saved empty config should load as empty"
+        finally:
+            if os.path.exists(temp_file):
+                os.unlink(temp_file)
 
 
 if __name__ == '__main__':
