@@ -9,10 +9,10 @@ and configuration files. It supports multiple environments and hierarchical
 configuration structures.
 """
 
+import logging
 import os
 import sys
 import yaml
-import logging
 
 logger = logging.getLogger(__name__)
 
@@ -30,11 +30,17 @@ class Config:
     """
 
     def __init__(self, module_name, env_prefix=None):
-        self.config = self.load(module_name)
-        self.config_file = os.path.expanduser(os.path.join("~", ".config", module_name, "config.yaml"))
-        self.config_dir = os.path.dirname(self.config_file)
+        # Set instance variables first
         self.module_name = module_name
         self.env_prefix = env_prefix
+        self.config_file = os.path.expanduser(os.path.join("~", ".config", module_name, "config.yaml"))
+        self.config_dir = os.path.dirname(self.config_file)
+
+        # Initialize config with empty dict, will be populated by load()
+        self.config = {}
+
+        # Now load the configuration
+        self.config = self.load(module_name)
 
         # Load env vars after loading config
         if self.env_prefix:
@@ -167,39 +173,63 @@ class Config:
 
     def load(self, module_name) -> dict:
         """
-        Load the configuration from YAML files.
+        Load configuration from default and user YAML files.
 
-        This function reads the default configuration from a YAML file named after the current module
-        located in the 'config' directory. If the user configuration file at '~/.config/<module_name>/config.yaml'
-        does not exist, it creates the necessary directories and writes the default configuration to this file.
-        Finally, it reads and returns the user configuration.
+        The method performs the following steps:
+        1. Loads default configuration from the module's config directory
+        2. If user config doesn't exist at '~/.config/<module_name>/config.yaml':
+           - Creates it using self.save() with default values
+           - Returns the default configuration
+        3. If user config exists:
+           - Loads and merges it with default configuration
+           - User values override default values for the same keys
+
+        The resulting configuration includes a 'config_file_path' key with the
+        path to the user's configuration file.
+
+        Args:
+            module_name: The name of the module to load configuration for
 
         Returns:
-            dict: The user configuration dictionary.
+            dict: The merged configuration dictionary with defaults and user settings.
 
         Raises:
-            OSError: If there is an error creating the directories or writing the configuration file.
+            OSError: If there is an error creating directories or writing the config file.
+
+        Example:
+            >>> config = Config('myapp')
+            >>> config.load('myapp')  # Returns merged configuration
         """
-        # Try to load the default config from package directory
+        # Get default configuration
         default_config = self._load_default_config(module_name)
 
-        # Create config directory if it doesn't exist
-        os.makedirs(self.config_dir, exist_ok=True)
+        # Create result config starting with defaults
+        config = default_config.copy()
 
-        # Create config file with default config if it doesn't exist
-        if not os.path.exists(self.config_file):
-            with open(self.config_file, 'w', encoding='utf-8') as f:
-                yaml.dump(default_config, f)
-
-        # Read user configuration and merge with defaults
-        config = {}
-        config.update(default_config)
+        # Add the config file path to the configuration
         config['config_file_path'] = self.config_file
 
-        with open(self.config_file, 'r', encoding='utf-8') as f:
-            user_config = yaml.safe_load(f)
-            if user_config:
-                config.update(user_config)
+        # Handle non-existent user config file
+        if not os.path.exists(self.config_file):
+            # Temporarily store default config and save it using self.save()
+            temp_config = self.config  # Save current config (if any)
+            self.config = default_config.copy()
+            self.save()  # Use the existing save method to create the file
+            self.config = temp_config  # Restore current config
+
+            # Return the default config with file path added
+            return config
+
+        # Load and merge user configuration if it exists
+        try:
+            with open(self.config_file, 'r', encoding='utf-8') as f:
+                user_config = yaml.safe_load(f)
+                if user_config:
+                    config.update(user_config)
+        except Exception as e:
+            # Log the error but continue with defaults
+            print(f"Error reading user config file {self.config_file}: {e}")
+            # Note: logger may not be configured yet, so using print
 
         return config
 
@@ -261,7 +291,7 @@ class Config:
             return True
         except (IOError, OSError) as e:
             # Log error but don't crash
-            logger.error(f"Failed to save configuration to {self.config_file}: {str(e)}")
+            logger.error("Failed to save configuration to %s: %s", self.config_file, str(e))
             return False
 
     def clear(self):
