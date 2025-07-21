@@ -30,12 +30,11 @@ class Config:
     """
 
     def __init__(self, module_name, env_prefix=None):
-        self.config = {}
+        self.config = self.load(module_name)
         self.config_file = os.path.expanduser(os.path.join("~", ".config", module_name, "config.yaml"))
         self.config_dir = os.path.dirname(self.config_file)
         self.module_name = module_name
         self.env_prefix = env_prefix
-        self.config = self.load(module_name)
 
         # Load env vars after loading config
         if self.env_prefix:
