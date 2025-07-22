@@ -176,7 +176,10 @@ class TestConfig:
                 os.unlink(config_path)
 
     def test_env_var_override(self, temp_config_file):
-        """Test environment variable override."""
+        """
+        Test environment variable override.
+        This test uses an explicit env_prefix, which is still supported alongside the new default behavior.
+        """
         # Set an environment variable that should override config
         os.environ['TEST_APP_API_URL'] = 'https://env-api.example.com'
 
@@ -214,6 +217,63 @@ class TestConfig:
             # Clean up
             if 'TEST_APP_NONEXISTENT' in os.environ:
                 del os.environ['TEST_APP_NONEXISTENT']
+                
+    def test_default_env_prefix(self):
+        """Test that environment variables work with the default prefix."""
+        # Use the module name as the environment variable prefix (converted to uppercase)
+        module_name = 'test-module'
+        env_var_name = 'TEST_MODULE_SETTING'
+        os.environ[env_var_name] = 'default-prefix-value'
+        
+        try:
+            # Create config without specifying env_prefix
+            config = Config(module_name)
+            
+            # The env var should be loaded automatically with the default prefix
+            assert config.get('setting') == 'default-prefix-value'
+            
+            # Verify the env_prefix was set correctly
+            assert config.env_prefix == 'TEST_MODULE'
+        finally:
+            # Clean up
+            if env_var_name in os.environ:
+                del os.environ[env_var_name]
+                
+    def test_disable_env_vars(self):
+        """Test that environment variables can be disabled by passing empty string."""
+        # Set an environment variable that should be ignored
+        os.environ['IGNORED_TEST_VAR'] = 'ignored-value'
+        
+        try:
+            # Create config with empty env_prefix to disable env vars
+            config = Config('test-app', env_prefix='')
+            
+            # The env var should not be loaded
+            assert config.get('test_var') is None
+            
+            # Verify the env_prefix is empty
+            assert config.env_prefix == ''
+        finally:
+            # Clean up
+            if 'IGNORED_TEST_VAR' in os.environ:
+                del os.environ['IGNORED_TEST_VAR']
+                
+    def test_module_name_formatting(self):
+        """Test that module names with hyphens are correctly converted to environment variable prefixes."""
+        # Test cases of module names and their expected env prefixes
+        test_cases = [
+            ('my-app', 'MY_APP'),
+            ('complex-name-with-hyphens', 'COMPLEX_NAME_WITH_HYPHENS'),
+            ('mixed_name-with-both', 'MIXED_NAME_WITH_BOTH'),
+            ('name_with_underscores', 'NAME_WITH_UNDERSCORES'),
+            ('lowercase', 'LOWERCASE'),
+            ('UPPERCASE', 'UPPERCASE'),
+        ]
+        
+        for module_name, expected_prefix in test_cases:
+            config = Config(module_name)
+            assert config.env_prefix == expected_prefix, \
+                f"Module name '{module_name}' should convert to env prefix '{expected_prefix}'"
 
     def test_load_nonexistent_file(self):
         """Test loading a nonexistent file with _load_config method."""

@@ -24,15 +24,34 @@ class Config:
     various sources, with support for environment-specific configurations
     and overrides. It provides a centralized way to manage application settings.
 
+    By default, environment variables can override configuration values. The format
+    is PREFIX_KEY, where PREFIX is the uppercase module name with hyphens replaced
+    by underscores, and KEY is the configuration key with dots replaced by underscores.
+    For example, for module 'my-app', the environment variable 'MY_APP_SERVER_PORT'
+    would override the config key 'server.port'.
+
     Attributes:
         config (dict): The loaded configuration settings
-        env (str): The current environment (development, production, etc.)
+        module_name (str): The name of the module this configuration belongs to
+        env_prefix (str): The prefix used for environment variable overrides
+        config_file (str): Path to the user's configuration file
     """
 
     def __init__(self, module_name, env_prefix=None):
+        """
+        Initialize a new Config instance.
+
+        Args:
+            module_name (str): The name of the module this configuration belongs to.
+                               Used for locating default config files and as default env_prefix.
+            env_prefix (str, optional): Prefix for environment variables that should override
+                                       config values. If None, defaults to module_name converted
+                                       to uppercase with hyphens replaced by underscores.
+        """
         # Set instance variables first
         self.module_name = module_name
-        self.env_prefix = env_prefix
+        # Default to module_name as prefix if None provided
+        self.env_prefix = env_prefix if env_prefix is not None else module_name.upper().replace('-', '_')
         self.config_file = os.path.expanduser(os.path.join("~", ".config", module_name, "config.yaml"))
         self.config_dir = os.path.dirname(self.config_file)
 
@@ -43,8 +62,7 @@ class Config:
         self.config = self.load(module_name)
 
         # Load env vars after loading config
-        if self.env_prefix:
-            self._load_env_vars()
+        self._load_env_vars()  # Always load env vars, since env_prefix now always has a value
 
         # Add each config key-value pair as an object attribute
         for key, value in self.config.items():
@@ -61,9 +79,6 @@ class Config:
         For example, given the prefix "APP", the environment variable "APP_DATABASE_URL"
         would override the config key "database.url".
         """
-        if not self.env_prefix:
-            return
-
         for env_key, env_value in os.environ.items():
             # Check if env var has our prefix
             if not env_key.startswith(f"{self.env_prefix}_"):
