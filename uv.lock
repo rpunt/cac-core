@@ -1,5 +1,5 @@
 version = 1
-revision = 2
+revision = 3
 requires-python = ">=3.9, <4.0"
 resolution-markers = [
     "python_full_version >= '3.12'",
@@ -109,6 +109,7 @@ source = { editable = "." }
 dependencies = [
     { name = "keyring" },
     { name = "logger" },
+    { name = "packaging" },
     { name = "pyyaml" },
     { name = "requests" },
     { name = "tabulate" },
@@ -140,6 +141,7 @@ requires-dist = [
     { name = "isort", marker = "extra == 'lint'", specifier = ">=5.12.0" },
     { name = "keyring", specifier = ">=25.6.0" },
     { name = "logger", specifier = ">=1.4" },
+    { name = "packaging", specifier = ">=25.0" },
     { name = "pylint", marker = "extra == 'lint'", specifier = ">=2.17.0" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.3.5" },
     { name = "pytest", marker = "extra == 'test'", specifier = ">=8.3.5" },
