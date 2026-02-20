@@ -57,28 +57,30 @@ class Model:
 
     def add_key(self, key, value):
         """
-        Adds a key to the model and creates getter and setter methods for it.
+        Registers a key in the model's field tracking.
 
-        This method dynamically adds an attribute to the model with the given key name,
-        initializes it with the corresponding value from the data dictionary, and creates
-        a setter method to update the value.
+        Attribute access for registered keys is handled by __getattr__,
+        which routes reads to self.data per-instance rather than creating
+        class-level property descriptors.
 
         Args:
             key (str): The key to add to the model.
             value: The value to associate with the key.
         """
-        # Create property for more Pythonic attribute access
-        def getter(self, key=key):
-            return self.data.get(key)
+        pass  # Field tracking is done by caller; access is via __getattr__
 
-        def setter(self, value, key=key):
-            self.data[key] = value
+    def __getattr__(self, name):
+        """Route attribute access to self.data for known field names."""
+        # Handle 'key=' setter pattern for backward compatibility
+        if name.endswith('='):
+            base_key = name[:-1]
+            if 'field_names' in self.__dict__ and base_key in self.__dict__['field_names']:
+                return lambda val: self.__dict__['data'].update({base_key: val})
 
-        prop = property(lambda self: getter(self), lambda self, val: setter(self, val))
-        setattr(self.__class__, key, prop)
+        if 'field_names' in self.__dict__ and name in self.__dict__['field_names']:
+            return self.__dict__['data'].get(name)
 
-        # Keep existing methods for backward compatibility
-        setattr(self, f"{key}=", lambda val, key=key: self.data.update({key: val}))
+        raise AttributeError(f"'{type(self).__name__}' object has no attribute '{name}'")
 
     def __iter__(self):
         for key in self.field_names:
@@ -257,5 +259,4 @@ class Model:
 
     def format_column(self, key, formatter):
         """Sets a formatter function for a specific column"""
-        self._formatters[key] = formatter
         self._formatters[key] = formatter

@@ -88,6 +88,7 @@ class Output:
         output_format = self._get_param("output", "table")
         if output_format == 'json':
             self.__output_to_json(data_models)
+            return
 
         if output_format == 'table':
             # For table output, resolve models (flatten complex structures)
