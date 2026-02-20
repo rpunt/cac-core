@@ -12,6 +12,8 @@ configuration structures.
 import logging
 import os
 import sys
+from typing import Any
+
 import yaml
 
 logger = logging.getLogger(__name__)
@@ -117,11 +119,10 @@ class Config:
                 config = yaml.safe_load(f)
                 return config or {}
         except Exception as e:
-            # Using print since logger might not be configured yet
-            print(f"Error loading config from {self.config_file}: {e}")
+            logger.error("Error loading config from %s: %s", self.config_file, e)
             return {}
 
-    def get(self, key: str, default=None) -> any:
+    def get(self, key: str, default=None) -> Any:
         """
         Get a configuration value by key.
 
@@ -152,7 +153,7 @@ class Config:
         # Return the value at the final location
         return current.get(parts[-1], default)
 
-    def set(self, key_path: str, value: any) -> None:
+    def set(self, key_path: str, value: Any) -> None:
         """
         Set a configuration value using dot notation path.
 
@@ -242,9 +243,7 @@ class Config:
                 if user_config:
                     config.update(user_config)
         except Exception as e:
-            # Log the error but continue with defaults
-            print(f"Error reading user config file {self.config_file}: {e}")
-            # Note: logger may not be configured yet, so using print
+            logger.error("Error reading user config file %s: %s", self.config_file, e)
 
         return config
 
@@ -277,7 +276,7 @@ class Config:
                     if loaded_config:
                         default_config.update(loaded_config)
             except Exception as e:
-                print(f"Failed to load default config from {default_config_file}: {e}")
+                logger.error("Failed to load default config from %s: %s", default_config_file, e)
 
         return default_config
 
@@ -344,7 +343,7 @@ class Config:
         except jsonschema.exceptions.ValidationError as e:
             return False, [str(e)]
         except ImportError:
-            print("jsonschema package not installed, skipping validation")
+            logger.warning("jsonschema package not installed, skipping validation")
             return True, ["jsonschema not installed"]
 
     def __enter__(self):
