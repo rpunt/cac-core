@@ -7,8 +7,6 @@ handles various error conditions gracefully, and properly notifies users.
 """
 
 import json
-import logging
-import os
 import tempfile
 from datetime import datetime, timedelta
 import importlib.metadata
@@ -17,7 +15,6 @@ from unittest.mock import patch, MagicMock
 
 import pytest
 import requests
-from packaging.version import parse as parse_version
 
 from cac_core.updatechecker import UpdateChecker, check_package_for_updates
 
@@ -32,13 +29,15 @@ def temp_data_dir():
 @pytest.fixture
 def mock_update_checker(temp_data_dir):
     """Create an UpdateChecker with a temp directory."""
-    with patch('cac_core.updatechecker.UpdateChecker._load_update_data') as mock_load,\
-        patch('importlib.metadata.version', return_value="1.0.0"),\
-        patch('cac_core.updatechecker.logger.warning'):  # Add this
+    with (
+        patch("cac_core.updatechecker.UpdateChecker._load_update_data") as mock_load,
+        patch("importlib.metadata.version", return_value="1.0.0"),
+        patch("cac_core.updatechecker.logger.warning"),
+    ):  # Add this
         mock_load.return_value = {
             "last_check": None,
             "latest_version": None,
-            "current_version": "1.0.0"
+            "current_version": "1.0.0",
         }
 
         checker = UpdateChecker("test-package")
@@ -54,8 +53,10 @@ class TestUpdateChecker:
 
     def test_initialization(self):
         """Test that the UpdateChecker initializes correctly."""
-        with patch('importlib.metadata.version', return_value="1.0.0"),\
-            patch('cac_core.updatechecker.logger.warning') as mock_warning:  # Add this line
+        with (
+            patch("importlib.metadata.version", return_value="1.0.0"),
+            patch("cac_core.updatechecker.logger.warning") as mock_warning,
+        ):  # Add this line
             checker = UpdateChecker("test-package")
             assert checker.package_name == "test-package"
             assert checker.current_version == "1.0.0"
@@ -67,16 +68,24 @@ class TestUpdateChecker:
 
     def test_github_source(self):
         """Test initialization with GitHub as the source."""
-        with patch('importlib.metadata.version', return_value="1.0.0"):
+        with patch("importlib.metadata.version", return_value="1.0.0"):
             checker = UpdateChecker("test-package", source="github", repo="owner/repo")
             assert checker.source == "github"
             assert checker.repo == "owner/repo"
-            assert checker.update_url == "https://api.github.com/repos/owner/repo/releases/latest"
+            assert (
+                checker.update_url
+                == "https://api.github.com/repos/owner/repo/releases/latest"
+            )
 
     def test_package_not_found(self):
         """Test behavior when package is not found."""
-        with patch('importlib.metadata.version', side_effect=importlib.metadata.PackageNotFoundError("test-package")),\
-            patch('cac_core.updatechecker.logger.warning') as mock_warning:
+        with (
+            patch(
+                "importlib.metadata.version",
+                side_effect=importlib.metadata.PackageNotFoundError("test-package"),
+            ),
+            patch("cac_core.updatechecker.logger.warning") as mock_warning,
+        ):
             checker = UpdateChecker("nonexistent-package")
             assert checker.current_version == "0.0.0"
 
@@ -117,14 +126,14 @@ class TestUpdateChecker:
         test_data = {
             "last_check": datetime.now().isoformat(),
             "latest_version": "2.0.0",
-            "current_version": "1.0.0"
+            "current_version": "1.0.0",
         }
 
         with open(file_path, "w") as f:
             json.dump(test_data, f)
 
         # Initialize checker with test file
-        with patch('importlib.metadata.version', return_value="1.0.0"):
+        with patch("importlib.metadata.version", return_value="1.0.0"):
             checker = UpdateChecker("test-package")
             checker.data_dir = temp_data_dir
             checker.data_file = file_path
@@ -142,7 +151,7 @@ class TestUpdateChecker:
         mock_update_checker.update_data = {
             "last_check": datetime.now(),
             "latest_version": "2.0.0",
-            "current_version": "1.0.0"
+            "current_version": "1.0.0",
         }
 
         # Get original method
@@ -178,11 +187,9 @@ class TestUpdateChecker:
     def test_fetch_latest_version_pypi_success(self, mock_update_checker):
         """Test fetching the latest version from PyPI when successful."""
         mock_response = MagicMock()
-        mock_response.json.return_value = {
-            "info": {"version": "2.0.0"}
-        }
+        mock_response.json.return_value = {"info": {"version": "2.0.0"}}
 
-        with patch('requests.get', return_value=mock_response) as mock_get:
+        with patch("requests.get", return_value=mock_response) as mock_get:
             version = mock_update_checker._fetch_latest_version()
             mock_get.assert_called_once_with(mock_update_checker.update_url, timeout=5)
             assert version == "2.0.0"
@@ -191,26 +198,27 @@ class TestUpdateChecker:
         """Test fetching the latest version from GitHub when successful."""
         mock_update_checker.source = "github"
         mock_update_checker.repo = "owner/repo"
-        mock_update_checker.update_url = "https://api.github.com/repos/owner/repo/releases/latest"
+        mock_update_checker.update_url = (
+            "https://api.github.com/repos/owner/repo/releases/latest"
+        )
 
         mock_response = MagicMock()
-        mock_response.json.return_value = {
-            "tag_name": "v2.0.0"
-        }
+        mock_response.json.return_value = {"tag_name": "v2.0.0"}
 
-        with patch('requests.get', return_value=mock_response) as mock_get:
+        with patch("requests.get", return_value=mock_response) as mock_get:
             version = mock_update_checker._fetch_latest_version()
             mock_get.assert_called_once_with(mock_update_checker.update_url, timeout=5)
             assert version == "2.0.0"
 
     def test_fetch_latest_version_request_error(self, mock_update_checker):
         """Test handling of request errors."""
+
         # Define a side effect function that raises an exception
         def request_error(*args, **kwargs):
             raise requests.RequestException("Connection error")
 
         # Patch requests.get to raise the RequestException
-        with patch('requests.get', side_effect=request_error):
+        with patch("requests.get", side_effect=request_error):
             # Previously stored version should be returned on error
             mock_update_checker.update_data["latest_version"] = "1.5.0"
             version = mock_update_checker._fetch_latest_version()
@@ -226,14 +234,16 @@ class TestUpdateChecker:
         mock_response = MagicMock()
         mock_response.json.side_effect = json.JSONDecodeError("Invalid JSON", "", 0)
 
-        with patch('requests.get', return_value=mock_response):
+        with patch("requests.get", return_value=mock_response):
             # Should handle JSON errors gracefully
             version = mock_update_checker._fetch_latest_version()
             assert version == "1.0.0"
 
     def test_check_for_updates_force(self, mock_update_checker):
         """Test forcing an update check."""
-        with patch.object(mock_update_checker, '_fetch_latest_version', return_value="2.0.0") as mock_fetch:
+        with patch.object(
+            mock_update_checker, "_fetch_latest_version", return_value="2.0.0"
+        ) as mock_fetch:
             status = mock_update_checker.check_for_updates(force=True)
             mock_fetch.assert_called_once()
             assert status["latest_version"] == "2.0.0"
@@ -245,18 +255,20 @@ class TestUpdateChecker:
         mock_update_checker.update_data = {
             "last_check": real_datetime,
             "latest_version": "1.5.0",
-            "current_version": "1.0.0"
+            "current_version": "1.0.0",
         }
 
         mock_update_checker.check_interval = timedelta(hours=2)
 
         # Patch the get_update_status method to return consistent data
-        with patch.object(mock_update_checker, '_fetch_latest_version') as mock_fetch, \
-            patch.object(mock_update_checker, 'get_update_status', return_value={
-                "latest_version": "1.5.0",
-                "update_available": True
-            }):
-
+        with (
+            patch.object(mock_update_checker, "_fetch_latest_version") as mock_fetch,
+            patch.object(
+                mock_update_checker,
+                "get_update_status",
+                return_value={"latest_version": "1.5.0", "update_available": True},
+            ),
+        ):
             status = mock_update_checker.check_for_updates(force=False)
 
             # Should not fetch when within interval
@@ -266,9 +278,13 @@ class TestUpdateChecker:
     def test_check_for_updates_interval_elapsed(self, mock_update_checker):
         """Test update check when interval has elapsed."""
         # Set last check to old time
-        mock_update_checker.update_data["last_check"] = datetime.now() - timedelta(days=2)
+        mock_update_checker.update_data["last_check"] = datetime.now() - timedelta(
+            days=2
+        )
 
-        with patch.object(mock_update_checker, '_fetch_latest_version', return_value="2.0.0") as mock_fetch:
+        with patch.object(
+            mock_update_checker, "_fetch_latest_version", return_value="2.0.0"
+        ) as mock_fetch:
             status = mock_update_checker.check_for_updates(force=False)
             # Should fetch when interval elapsed
             mock_fetch.assert_called_once()
@@ -293,17 +309,19 @@ class TestUpdateChecker:
 
     def test_notify_if_update_available(self, mock_update_checker):
         """Test update notification using direct logger mocking."""
-        with patch('cac_core.updatechecker.logger') as mock_logger:
+        with patch("cac_core.updatechecker.logger") as mock_logger:
             # Test with update available
             mock_update_checker.current_version = "1.0.0"
             mock_update_checker.update_data["latest_version"] = "2.0.0"
 
             # Make sure get_update_status returns the correct data
-            with patch.object(mock_update_checker, 'get_update_status') as mock_get_status:
+            with patch.object(
+                mock_update_checker, "get_update_status"
+            ) as mock_get_status:
                 mock_get_status.return_value = {
                     "update_available": True,
                     "current_version": "1.0.0",
-                    "latest_version": "2.0.0"
+                    "latest_version": "2.0.0",
                 }
 
                 result = mock_update_checker.notify_if_update_available()
@@ -319,11 +337,13 @@ class TestUpdateChecker:
             mock_update_checker.update_data["latest_version"] = "2.0.0"
 
             # Mock get_update_status for the "up to date" case
-            with patch.object(mock_update_checker, 'get_update_status') as mock_get_status:
+            with patch.object(
+                mock_update_checker, "get_update_status"
+            ) as mock_get_status:
                 mock_get_status.return_value = {
                     "update_available": False,
                     "current_version": "3.0.0",
-                    "latest_version": "2.0.0"
+                    "latest_version": "2.0.0",
                 }
 
                 result = mock_update_checker.notify_if_update_available()
@@ -334,11 +354,13 @@ class TestUpdateChecker:
 
             # Test with no update and quiet=True
             # Mock get_update_status again
-            with patch.object(mock_update_checker, 'get_update_status') as mock_get_status:
+            with patch.object(
+                mock_update_checker, "get_update_status"
+            ) as mock_get_status:
                 mock_get_status.return_value = {
                     "update_available": False,
                     "current_version": "3.0.0",
-                    "latest_version": "2.0.0"
+                    "latest_version": "2.0.0",
                 }
 
                 result = mock_update_checker.notify_if_update_available(quiet=True)
@@ -349,20 +371,24 @@ class TestUpdateChecker:
 
 def test_check_package_for_updates_convenience():
     """Test the convenience function."""
-    with patch('cac_core.updatechecker.UpdateChecker') as MockUpdateChecker,\
-        patch('cac_core.updatechecker.logger.warning'):  # Add this
+    with (
+        patch("cac_core.updatechecker.UpdateChecker") as MockUpdateChecker,
+        patch("cac_core.updatechecker.logger.warning"),
+    ):  # Add this
         mock_instance = MockUpdateChecker.return_value
         mock_instance.check_for_updates.return_value = {
             "update_available": True,
             "current_version": "1.0.0",
-            "latest_version": "2.0.0"
+            "latest_version": "2.0.0",
         }
 
         result = check_package_for_updates("test-package")
 
         MockUpdateChecker.assert_called_once_with("test-package")
         mock_instance.check_for_updates.assert_called_once_with(force=False)
-        mock_instance.notify_if_update_available.assert_called_once_with(quiet=True)  # Updated: now defaults to quiet=True
+        mock_instance.notify_if_update_available.assert_called_once_with(
+            quiet=True
+        )  # Updated: now defaults to quiet=True
         assert result["update_available"] is True
 
         # Test with explicit quiet=False

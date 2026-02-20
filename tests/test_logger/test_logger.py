@@ -1,32 +1,14 @@
 """
-Tests for the logger module of the CAC Core package.
-
-This module contains test cases for the logger functionality, ensuring that:
-1. Loggers are created with the correct configuration
-2. Logger instances are properly cached and reused
-3. Log handlers are not duplicated when retrieving existing loggers
-4. Formatters are correctly applied to log output
-
-The logger module is a critical component of the CAC framework as it provides
-consistent logging behavior across all applications that use the framework.
+Test suite for the logger module in the cac_core package.
 """
 
 import logging
+
 import cac_core as cac
 
+
 class TestLogger:
-    """
-    Test suite for the logger module.
-
-    This test class verifies the functionality of the logging system,
-    ensuring that loggers are properly created, configured, and don't
-    duplicate handlers when requested multiple times with the same name.
-
-    Test cases:
-    - Logger creation with proper name and level
-    - Handler configuration with formatters
-    - Prevention of duplicate handlers
-    """
+    """Test suite for the logger module."""
 
     def test_logger_creation(self):
         """Test logger creation and configuration."""
@@ -52,3 +34,44 @@ class TestLogger:
         assert logger1 is logger2
         # Should not have added more handlers
         assert len(logger2.handlers) == handlers_count
+
+    def test_logger_debug_level(self):
+        """Test logger creation with DEBUG level."""
+        logger = cac.logger.new("test_debug_level", level=logging.DEBUG)
+        assert logger.level == logging.DEBUG
+
+    def test_logger_debug_format(self):
+        """Test that DEBUG level uses detailed format string."""
+        logger = cac.logger.new("test_debug_format", level=logging.DEBUG)
+        handler = logger.handlers[0]
+        fmt = handler.formatter._fmt
+        # DEBUG format includes process/thread/module info
+        assert "%(processName)s" in fmt
+        assert "%(module)s" in fmt
+
+    def test_logger_info_format(self):
+        """Test that INFO level uses simple format string."""
+        logger = cac.logger.new("test_info_format", level=logging.INFO)
+        handler = logger.handlers[0]
+        fmt = handler.formatter._fmt
+        # INFO format is simpler
+        assert "%(levelname)s" in fmt
+        assert "%(message)s" in fmt
+
+    def test_logger_custom_format(self):
+        """Test logger with custom format string."""
+        custom_fmt = "%(name)s - %(message)s"
+        logger = cac.logger.new("test_custom_format", format_string=custom_fmt)
+        handler = logger.handlers[0]
+        assert handler.formatter._fmt == custom_fmt
+
+    def test_logger_level_updated_on_second_call(self):
+        """Test that calling new() again with a different level updates the logger."""
+        logger1 = cac.logger.new("test_level_update", level=logging.INFO)
+        assert logger1.level == logging.INFO
+
+        logger2 = cac.logger.new("test_level_update", level=logging.DEBUG)
+        assert logger2.level == logging.DEBUG
+        # Should still be the same logger instance with no duplicate handlers
+        assert logger1 is logger2
+        assert len(logger2.handlers) == 1

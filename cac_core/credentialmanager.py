@@ -42,7 +42,11 @@ Example:
 """
 
 import getpass
+import logging
+
 import keyring
+
+logger = logging.getLogger(__name__)
 
 
 class CredentialManager:
@@ -135,7 +139,7 @@ class CredentialManager:
             self.credential = credential_string
             return True
         except Exception as e:
-            print(f"Failed to store {description} for {username}: {str(e)}")
+            logger.error("Failed to store %s for %s: %s", description, username, e)
             return False
 
     def delete_credential(self, username):
@@ -154,5 +158,5 @@ class CredentialManager:
                 self.credential = None
             return True
         except Exception as e:
-            print(f"Failed to delete credential for {username}: {str(e)}")
+            logger.error("Failed to delete credential for %s: %s", username, e)
             return False

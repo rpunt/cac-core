@@ -20,8 +20,9 @@ from packaging.version import parse as parse_version
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 handler = logging.StreamHandler()
-handler.setFormatter(logging.Formatter('%(levelname)s: %(message)s'))
+handler.setFormatter(logging.Formatter("%(levelname)s: %(message)s"))
 logger.addHandler(handler)
+
 
 class UpdateChecker:
     """
@@ -37,7 +38,9 @@ class UpdateChecker:
         source (str): The source to check for updates ('pypi' or 'github')
     """
 
-    def __init__(self, package_name, check_interval=timedelta(hours=1), source='pypi', repo=None):
+    def __init__(
+        self, package_name, check_interval=timedelta(hours=1), source="pypi", repo=None
+    ):
         """
         Initialize the UpdateChecker.
 
@@ -61,26 +64,29 @@ class UpdateChecker:
         self.check_interval = check_interval
 
         # Set the update URL based on source
-        if self.source == 'github' and repo:
+        if self.source == "github" and repo:
             self.update_url = f"https://api.github.com/repos/{repo}/releases/latest"
         else:
             self.update_url = f"https://pypi.org/pypi/{package_name}/json"
-            self.source = 'pypi'  # Default to PyPI if GitHub not properly configured
+            self.source = "pypi"  # Default to PyPI if GitHub not properly configured
 
         # Set up data storage
         try:
             # Use a more platform-independent approach for determining config location
-            if os.name == 'nt':  # Windows
-                app_data = os.environ.get('APPDATA', os.path.expanduser('~'))
+            if os.name == "nt":  # Windows
+                app_data = os.environ.get("APPDATA", os.path.expanduser("~"))
                 self.data_dir = Path(app_data) / package_name
             else:  # macOS, Linux, etc.
-                self.data_dir = Path(os.path.expanduser(os.path.join("~", ".config", package_name)))
+                self.data_dir = Path(
+                    os.path.expanduser(os.path.join("~", ".config", package_name))
+                )
 
             self.data_dir.mkdir(exist_ok=True, parents=True)
         except (PermissionError, OSError) as e:
             logger.warning(f"Could not create data directory {self.data_dir}: {e}")
             # Fall back to a temporary directory
             import tempfile
+
             self.data_dir = Path(tempfile.gettempdir()) / package_name
             self.data_dir.mkdir(exist_ok=True, parents=True)
 
@@ -108,7 +114,7 @@ class UpdateChecker:
         return {
             "last_check": None,
             "latest_version": None,
-            "current_version": self.current_version
+            "current_version": self.current_version,
         }
 
     def _save_update_data(self):
@@ -168,7 +174,7 @@ class UpdateChecker:
             response = requests.get(self.update_url, timeout=5)
             response.raise_for_status()
 
-            if self.source == 'github':
+            if self.source == "github":
                 data = response.json()
                 return data.get("tag_name", "0.0.0").lstrip("v")
             else:  # PyPI
@@ -197,7 +203,7 @@ class UpdateChecker:
             "current_version": self.current_version,
             "latest_version": self.update_data.get("latest_version"),
             "update_available": latest > current,
-            "last_checked": self.update_data.get("last_check")
+            "last_checked": self.update_data.get("last_check"),
         }
 
     def notify_if_update_available(self, quiet=False):
@@ -219,7 +225,9 @@ class UpdateChecker:
             logger.info(f"  Update with: pip install -U {self.package_name}")
             return True
         elif not quiet:
-            logger.info(f"{self.package_name} is up to date ({status['current_version']}).")
+            logger.info(
+                f"{self.package_name} is up to date ({status['current_version']})."
+            )
 
         return False
 

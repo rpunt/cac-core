@@ -4,9 +4,12 @@ This module contains unit tests for the CredentialManager class, which
 handles credential storage and retrieval using the keyring library.
 """
 
-from unittest.mock import patch #, MagicMock
+import logging
+from unittest.mock import patch  # , MagicMock
+
 # import keyring
 import pytest
+
 # import getpass
 import cac_core as cac
 
@@ -89,18 +92,19 @@ class TestCredentialManager:
         assert credential_manager.credential == "test_password"
 
     @patch("keyring.set_password")
-    def test_set_credential_failure(self, mock_set_password, credential_manager):
+    def test_set_credential_failure(
+        self, mock_set_password, credential_manager, caplog
+    ):
         """Test handling of credential storage failure."""
         mock_set_password.side_effect = Exception("Storage error")
 
-        with patch("builtins.print") as mock_print:
+        with caplog.at_level(logging.ERROR):
             result = credential_manager.set_credential("test_user", "test_password")
 
         mock_set_password.assert_called_once_with(
             "test_module", "test_user", "test_password"
         )
-        mock_print.assert_called_once()
-        assert "Failed to store" in mock_print.call_args[0][0]
+        assert "Failed to store" in caplog.text
         assert result is False
 
     @patch("keyring.delete_password")
@@ -116,14 +120,15 @@ class TestCredentialManager:
         assert credential_manager.credential is None
 
     @patch("keyring.delete_password")
-    def test_delete_credential_failure(self, mock_delete_password, credential_manager):
+    def test_delete_credential_failure(
+        self, mock_delete_password, credential_manager, caplog
+    ):
         """Test handling of credential deletion failure."""
         mock_delete_password.side_effect = Exception("Deletion error")
 
-        with patch("builtins.print") as mock_print:
+        with caplog.at_level(logging.ERROR):
             result = credential_manager.delete_credential("test_user")
 
         mock_delete_password.assert_called_once_with("test_module", "test_user")
-        mock_print.assert_called_once()
-        assert "Failed to delete" in mock_print.call_args[0][0]
+        assert "Failed to delete" in caplog.text
         assert result is False

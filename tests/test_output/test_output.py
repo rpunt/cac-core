@@ -1,7 +1,7 @@
 # pylint: disable=line-too-long
 
 """
-placeholder docstring
+Test suite for the Output class in the cac_core module.
 """
 
 import json
@@ -12,8 +12,10 @@ import pytest
 
 import cac_core as cac
 
+
 class TestOutput:
     """Test suite for the Output class."""
+
     @pytest.fixture
     def sample_models(self, sample_data):
         """Create sample models for testing output."""

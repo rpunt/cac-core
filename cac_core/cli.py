@@ -7,7 +7,11 @@ generation. It serves as the main entry point for CAC command-line applications.
 """
 
 import argparse
+import logging
 import sys
+
+logger = logging.getLogger(__name__)
+
 
 class CLI:
     """
@@ -27,7 +31,9 @@ class CLI:
         self.commands = commands
         self.config = config or {}
         self.opts = {}
-        self.parser = argparse.ArgumentParser(description=self.config.get('description', ''))
+        self.parser = argparse.ArgumentParser(
+            description=self.config.get("description", "")
+        )
 
     def parse_args(self, args=None):
         """
@@ -46,14 +52,18 @@ class CLI:
         """
         Executes the command specified in the parsed arguments.
         """
-        command = self.opts.get('command')
+        command = self.opts.get("command")
         if not command:
             self.parser.print_help()
             sys.exit(1)
 
         module = self.commands.get(command)
         if not module:
-            print(f"Unknown command: {command}")
+            logger.error("Unknown command: %s", command)
             sys.exit(1)
 
-        module.execute(self.opts)
+        try:
+            module.execute(self.opts)
+        except Exception:
+            logger.exception("Error executing command '%s'", command)
+            sys.exit(1)
