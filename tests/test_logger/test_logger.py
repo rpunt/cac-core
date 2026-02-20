@@ -65,15 +65,13 @@ class TestLogger:
         handler = logger.handlers[0]
         assert handler.formatter._fmt == custom_fmt
 
-    def test_logger_level_not_updated_on_second_call(self):
-        """Test that calling new() again with a different level does not update the logger.
-
-        This documents the known limitation described in logger.py:37-38 where
-        the handler guard prevents reconfiguration of an existing logger.
-        """
-        logger1 = cac.logger.new("test_level_sticky", level=logging.INFO)
+    def test_logger_level_updated_on_second_call(self):
+        """Test that calling new() again with a different level updates the logger."""
+        logger1 = cac.logger.new("test_level_update", level=logging.INFO)
         assert logger1.level == logging.INFO
 
-        logger2 = cac.logger.new("test_level_sticky", level=logging.DEBUG)
-        # Level is NOT updated because handlers already exist
-        assert logger2.level == logging.INFO
+        logger2 = cac.logger.new("test_level_update", level=logging.DEBUG)
+        assert logger2.level == logging.DEBUG
+        # Should still be the same logger instance with no duplicate handlers
+        assert logger1 is logger2
+        assert len(logger2.handlers) == 1

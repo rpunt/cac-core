@@ -33,11 +33,12 @@ def new(name, level=logging.INFO, format_string=None) -> logging.Logger:
     """
     logger = logging.getLogger(name)
 
-    # Only add handler if the logger doesn't already have handlers
-    # TODO: this doesn't work; the handler will only be added once, and since we haven't parse the args yet,
-    # the level will be set to INFO by default. We need to set the level to DEBUG if we want to see debug messages.
+    # Always update the level so callers can reconfigure after initial creation
+    # (e.g., switching to DEBUG after parsing --verbose)
+    logger.setLevel(level)
+
+    # Only add handler if the logger doesn't already have one
     if not logger.handlers:
-        logger.setLevel(level)
         sh = logging.StreamHandler()
 
         # Use provided format or default
