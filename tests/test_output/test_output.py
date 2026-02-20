@@ -1,7 +1,7 @@
 # pylint: disable=line-too-long
 
 """
-placeholder docstring
+Test suite for the Output class in the cac_core module.
 """
 
 import json

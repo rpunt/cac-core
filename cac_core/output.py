@@ -166,10 +166,9 @@ class Output:
         for model in data_models:
             for k, v in model.items():
                 if isinstance(v, dict):
-                    getattr(model, f"{k}=")(json.dumps(v))
+                    model[k] = json.dumps(v)
                 elif isinstance(v, list):
-                    formatted_list = ', '.join([json.dumps(x) if hasattr(x, 'to_dict') else str(x) for x in v])
-                    getattr(model, f"{k}=")(formatted_list)
+                    model[k] = ', '.join([json.dumps(x) if hasattr(x, 'to_dict') else str(x) for x in v])
 
 
 # Example usage

@@ -71,12 +71,6 @@ class Model:
 
     def __getattr__(self, name):
         """Route attribute access to self.data for known field names."""
-        # Handle 'key=' setter pattern for backward compatibility
-        if name.endswith('='):
-            base_key = name[:-1]
-            if 'field_names' in self.__dict__ and base_key in self.__dict__['field_names']:
-                return lambda val: self.__dict__['data'].update({base_key: val})
-
         if 'field_names' in self.__dict__ and name in self.__dict__['field_names']:
             return self.__dict__['data'].get(name)
 

@@ -64,9 +64,10 @@ class Config:
         self.config = self.load(module_name)
 
         # Load env vars after loading config
-        self._load_env_vars()  # Always load env vars, since env_prefix now always has a value
+        self._load_env_vars()
 
         # Add each config key-value pair as an object attribute
+        # Done after env var loading so attributes reflect overrides
         for key, value in self.config.items():
             setattr(self, key, value)
 
@@ -94,11 +95,6 @@ class Config:
 
             # Set the value in our config
             self.set(config_key, env_value)
-
-            # Also update any corresponding object attribute if it exists
-            # This is important for maintaining consistency with the original attribute-setting logic
-            if "." not in config_key and hasattr(self, config_key):
-                setattr(self, config_key, env_value)
 
     def _load_config(self):
         """
