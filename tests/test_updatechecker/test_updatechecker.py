@@ -7,8 +7,6 @@ handles various error conditions gracefully, and properly notifies users.
 """
 
 import json
-import logging
-import os
 import tempfile
 from datetime import datetime, timedelta
 import importlib.metadata
@@ -17,7 +15,6 @@ from unittest.mock import patch, MagicMock
 
 import pytest
 import requests
-from packaging.version import parse as parse_version
 
 from cac_core.updatechecker import UpdateChecker, check_package_for_updates
 

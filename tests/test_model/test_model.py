@@ -150,7 +150,8 @@ class TestModel:
     def test_format_column(self, sample_data):
         """Test format_column stores formatter."""
         model = cac.model.Model(sample_data)
-        formatter = lambda x: x.upper()
+        def formatter(x):
+            return x.upper()
         model.format_column("name", formatter)
         assert model._formatters["name"] is formatter
 
