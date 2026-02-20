@@ -12,6 +12,7 @@ import sys
 
 logger = logging.getLogger(__name__)
 
+
 class CLI:
     """
     Command-line interface handler for CAC applications.
@@ -30,7 +31,9 @@ class CLI:
         self.commands = commands
         self.config = config or {}
         self.opts = {}
-        self.parser = argparse.ArgumentParser(description=self.config.get('description', ''))
+        self.parser = argparse.ArgumentParser(
+            description=self.config.get("description", "")
+        )
 
     def parse_args(self, args=None):
         """
@@ -49,7 +52,7 @@ class CLI:
         """
         Executes the command specified in the parsed arguments.
         """
-        command = self.opts.get('command')
+        command = self.opts.get("command")
         if not command:
             self.parser.print_help()
             sys.exit(1)

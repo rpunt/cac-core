@@ -31,6 +31,7 @@ class TestCommand:
             """
             A simple command implementation for testing purposes.
             """
+
             def define_arguments(self, parser):
                 super().define_common_arguments(parser)
                 parser.add_argument("--test", help="Test argument")
@@ -90,7 +91,7 @@ class TestCommand:
         """Test that define_arguments adds common arguments."""
         parser = simple_command.define_arguments(mock_parser)
 
-        actions = {action.dest: action for action in parser._actions} # pylint: disable=protected-access
+        actions = {action.dest: action for action in parser._actions}  # pylint: disable=protected-access
         assert "output" in actions
         assert "test" in actions  # Custom argument
 
@@ -102,7 +103,7 @@ class TestCommand:
         Command.define_common_arguments(mock_parser)
 
         # Check that there's only one output argument and it hasn't been overridden
-        output_actions = [ a for a in mock_parser._actions if a.dest == "output" ]  # pylint: disable=protected-access
+        output_actions = [a for a in mock_parser._actions if a.dest == "output"]  # pylint: disable=protected-access
         assert len(output_actions) == 1
         assert output_actions[0].choices == [
             "csv",
@@ -112,7 +113,7 @@ class TestCommand:
     def test_abstract_methods(self):
         """Test that abstract methods cannot be instantiated without implementation."""
         with pytest.raises(TypeError):
-            Command() # pylint: disable=abstract-class-instantiated
+            Command()  # pylint: disable=abstract-class-instantiated
 
     def test_execute_implementation(self, simple_command):
         """Test that execute can be called on implementing class."""

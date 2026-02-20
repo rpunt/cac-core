@@ -8,7 +8,7 @@ common functionality that all commands should implement.
 
 import abc
 import logging
-from typing import Any, Dict, Optional, Tuple, Union #, List
+from typing import Any, Dict, Optional, Tuple, Union  # , List
 
 
 class CommandError(Exception):
@@ -18,6 +18,7 @@ class CommandError(Exception):
         self.message = message
         self.exit_code = exit_code
         super().__init__(self.message)
+
 
 class Command(metaclass=abc.ABCMeta):
     """
@@ -45,7 +46,7 @@ class Command(metaclass=abc.ABCMeta):
         Args:
             parser (ArgumentParser): The argument parser to add arguments to
         """
-        has_output = any(action.dest == 'output' for action in parser._actions)
+        has_output = any(action.dest == "output" for action in parser._actions)
         if not has_output:
             parser.add_argument(
                 "--output",
@@ -57,13 +58,10 @@ class Command(metaclass=abc.ABCMeta):
             )
 
         # Check if the verbose argument already exists
-        has_verbose = any(action.dest == 'verbose' for action in parser._actions)
+        has_verbose = any(action.dest == "verbose" for action in parser._actions)
         if not has_verbose:
             parser.add_argument(
-                "--verbose",
-                help="Verbose output",
-                action="store_true",
-                default=False
+                "--verbose", help="Verbose output", action="store_true", default=False
             )
 
     @abc.abstractmethod

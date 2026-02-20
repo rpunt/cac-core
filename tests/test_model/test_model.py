@@ -13,6 +13,7 @@ import cac_core as cac
 
 class TestModel:
     """Test suite for the Model class."""
+
     def test_model_creation(self, sample_data):
         """Test creating a model from data."""
         model = cac.model.Model(sample_data)
@@ -150,14 +151,17 @@ class TestModel:
     def test_format_column(self, sample_data):
         """Test format_column stores formatter."""
         model = cac.model.Model(sample_data)
+
         def formatter(x):
             return x.upper()
+
         model.format_column("name", formatter)
         assert model._formatters["name"] is formatter
 
     def test_to_json(self, sample_data):
         """Test JSON serialization."""
         import json
+
         model = cac.model.Model(sample_data)
         result = json.loads(model.to_json())
         assert result["name"] == "Test Project"

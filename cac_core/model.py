@@ -13,7 +13,8 @@ and supports serialization to dictionaries and JSON for data exchange.
 
 import json
 import copy
-from typing import Any, Dict, List, Optional, Set, Tuple #, Union
+from typing import Any, Dict, List, Optional, Set, Tuple  # , Union
+
 
 class Model:
     """
@@ -29,7 +30,9 @@ class Model:
         field_names (set): Set of dynamically created attribute names.
     """
 
-    def __init__(self, row_data: Dict[str, Any], keys_to_remove: Optional[List[str]] = None) -> None:
+    def __init__(
+        self, row_data: Dict[str, Any], keys_to_remove: Optional[List[str]] = None
+    ) -> None:
         self.field_names: Set[str] = set()
         self.data: Dict[str, Any] = {}
         self._key_order: List[str] = []
@@ -49,7 +52,10 @@ class Model:
             self.add_key(key, value)
 
             if isinstance(value, list):
-                self.data[key] = [Model(val, keys_to_remove) if isinstance(val, dict) else val for val in value]
+                self.data[key] = [
+                    Model(val, keys_to_remove) if isinstance(val, dict) else val
+                    for val in value
+                ]
             elif isinstance(value, dict):
                 self.data[key] = Model(value, keys_to_remove)
             else:
@@ -71,10 +77,12 @@ class Model:
 
     def __getattr__(self, name):
         """Route attribute access to self.data for known field names."""
-        if 'field_names' in self.__dict__ and name in self.__dict__['field_names']:
-            return self.__dict__['data'].get(name)
+        if "field_names" in self.__dict__ and name in self.__dict__["field_names"]:
+            return self.__dict__["data"].get(name)
 
-        raise AttributeError(f"'{type(self).__name__}' object has no attribute '{name}'")
+        raise AttributeError(
+            f"'{type(self).__name__}' object has no attribute '{name}'"
+        )
 
     def __iter__(self):
         for key in self.field_names:
@@ -126,7 +134,9 @@ class Model:
                   with nested models also converted to dictionaries.
         """
         # More efficient implementation using comprehension
-        return {key: self._process_results(self.data.get(key)) for key in self._key_order}
+        return {
+            key: self._process_results(self.data.get(key)) for key in self._key_order
+        }
 
     def remove_keys(self):
         """
@@ -135,7 +145,7 @@ class Model:
         Returns:
             list: A list of keys that should be removed when processing data.
         """
-        return getattr(self, '_remove_keys', [])
+        return getattr(self, "_remove_keys", [])
 
     def set_remove_keys(self, remove_keys):
         """
@@ -156,7 +166,7 @@ class Model:
         Returns:
             str: A string representation of the model's current state.
         """
-        return ' '.join(f"{key}={getattr(self, key)}" for key in self.field_names)
+        return " ".join(f"{key}={getattr(self, key)}" for key in self.field_names)
 
     def _process_results(self, value):
         if isinstance(value, Model):

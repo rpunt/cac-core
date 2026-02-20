@@ -18,6 +18,7 @@ import yaml
 
 logger = logging.getLogger(__name__)
 
+
 class Config:
     """
     Configuration manager for CAC applications.
@@ -53,8 +54,14 @@ class Config:
         # Set instance variables first
         self.module_name = module_name
         # Default to module_name as prefix if None provided
-        self.env_prefix = env_prefix if env_prefix is not None else module_name.upper().replace('-', '_')
-        self.config_file = os.path.expanduser(os.path.join("~", ".config", module_name, "config.yaml"))
+        self.env_prefix = (
+            env_prefix
+            if env_prefix is not None
+            else module_name.upper().replace("-", "_")
+        )
+        self.config_file = os.path.expanduser(
+            os.path.join("~", ".config", module_name, "config.yaml")
+        )
         self.config_dir = os.path.dirname(self.config_file)
 
         # Initialize config with empty dict, will be populated by load()
@@ -88,7 +95,7 @@ class Config:
                 continue
 
             # Remove prefix and convert to lowercase
-            config_key = env_key[len(f"{self.env_prefix}_"):].lower()
+            config_key = env_key[len(f"{self.env_prefix}_") :].lower()
 
             # Replace underscores with dots for nested keys
             config_key = config_key.replace("_", ".")
@@ -111,7 +118,7 @@ class Config:
             return {}
 
         try:
-            with open(self.config_file, 'r', encoding='utf-8') as f:
+            with open(self.config_file, "r", encoding="utf-8") as f:
                 config = yaml.safe_load(f)
                 return config or {}
         except Exception as e:
@@ -132,12 +139,12 @@ class Config:
         Returns:
             The configuration value or the default value if not found.
         """
-        if '.' not in key:
+        if "." not in key:
             # Simple case: top-level key
             return self.config.get(key, default)
 
         # Handle nested keys
-        parts = key.split('.')
+        parts = key.split(".")
         current = self.config
 
         # Navigate to the nested location
@@ -165,13 +172,13 @@ class Config:
             >>> config.set('debug', True)
             >>> config.set('server.timeout', 30)
         """
-        if '.' not in key_path:
+        if "." not in key_path:
             # Simple case: top-level key
             self.config[key_path] = value
             return
 
         # Handle nested keys
-        parts = key_path.split('.')
+        parts = key_path.split(".")
         current = self.config
 
         # Navigate to the nested location, creating dictionaries as needed
@@ -219,7 +226,7 @@ class Config:
         config = default_config.copy()
 
         # Add the config file path to the configuration
-        config['config_file_path'] = self.config_file
+        config["config_file_path"] = self.config_file
 
         # Handle non-existent user config file
         if not os.path.exists(self.config_file):
@@ -234,7 +241,7 @@ class Config:
 
         # Load and merge user configuration if it exists
         try:
-            with open(self.config_file, 'r', encoding='utf-8') as f:
+            with open(self.config_file, "r", encoding="utf-8") as f:
                 user_config = yaml.safe_load(f)
                 if user_config:
                     config.update(user_config)
@@ -272,7 +279,9 @@ class Config:
                     if loaded_config:
                         default_config.update(loaded_config)
             except Exception as e:
-                logger.error("Failed to load default config from %s: %s", default_config_file, e)
+                logger.error(
+                    "Failed to load default config from %s: %s", default_config_file, e
+                )
 
         return default_config
 
@@ -295,13 +304,15 @@ class Config:
             os.makedirs(os.path.dirname(self.config_file), exist_ok=True)
 
             # Write the config to file
-            with open(self.config_file, 'w', encoding='utf-8') as f:
+            with open(self.config_file, "w", encoding="utf-8") as f:
                 yaml.dump(self.config, f)
 
             return True
         except (IOError, OSError) as e:
             # Log error but don't crash
-            logger.error("Failed to save configuration to %s: %s", self.config_file, str(e))
+            logger.error(
+                "Failed to save configuration to %s: %s", self.config_file, str(e)
+            )
             return False
 
     def clear(self):
@@ -333,7 +344,8 @@ class Config:
             tuple: (is_valid, errors)
         """
         try:
-            import jsonschema # pylint: disable=import-outside-toplevel
+            import jsonschema  # pylint: disable=import-outside-toplevel
+
             jsonschema.validate(self.config, schema)
             return True, []
         except jsonschema.exceptions.ValidationError as e:

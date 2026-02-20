@@ -19,6 +19,7 @@ Example:
 
 import logging
 
+
 def new(name, level=logging.INFO, format_string=None) -> logging.Logger:
     """
     Create and configure a logger for the cac class.

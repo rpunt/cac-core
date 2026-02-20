@@ -12,6 +12,7 @@ import json
 import logging
 import tabulate
 
+
 class Output:
     """
     Handles the formatting and display of data in the CAC framework.
@@ -86,15 +87,17 @@ class Output:
             table_options = {}
 
         output_format = self._get_param("output", "table")
-        if output_format == 'json':
+        if output_format == "json":
             self.__output_to_json(data_models)
             return
 
-        if output_format == 'table':
+        if output_format == "table":
             # For table output, resolve models (flatten complex structures)
-            data_models = list(data_models) if isinstance(data_models, list) else [data_models]
+            data_models = (
+                list(data_models) if isinstance(data_models, list) else [data_models]
+            )
             if not data_models:
-                self.logger.info('No results were found')
+                self.logger.info("No results were found")
                 return
             self.__resolve_models(data_models)
             self.__output_to_table(data_models, table_options)
@@ -158,7 +161,15 @@ class Output:
             row = [model.get(key) for key in headers]
             table_data.append(row)
 
-        print(tabulate.tabulate(table_data, headers, tablefmt='pretty', stralign='left', numalign='right'))
+        print(
+            tabulate.tabulate(
+                table_data,
+                headers,
+                tablefmt="pretty",
+                stralign="left",
+                numalign="right",
+            )
+        )
         row_count = len(table_data)
         print(f"{row_count} {'row' if row_count == 1 else 'rows'}")
 
@@ -168,12 +179,14 @@ class Output:
                 if isinstance(v, dict):
                     model[k] = json.dumps(v)
                 elif isinstance(v, list):
-                    model[k] = ', '.join([json.dumps(x) if hasattr(x, 'to_dict') else str(x) for x in v])
+                    model[k] = ", ".join(
+                        [json.dumps(x) if hasattr(x, "to_dict") else str(x) for x in v]
+                    )
 
 
 # Example usage
 if __name__ == "__main__":
-    opts = {'json': False, 'external_call': False, 'suppress_output': False}
+    opts = {"json": False, "external_call": False, "suppress_output": False}
     output_table = Output(opts)
-    models = [{'Key': 'example_key', 'Value': 'example_value'}]
+    models = [{"Key": "example_key", "Value": "example_value"}]
     output_table.print_models(models)
