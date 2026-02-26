@@ -1,29 +1,27 @@
-# This workflow uses actions that are not certified by GitHub.
-# They are provided by a third-party and are governed by
-# separate terms of service, privacy policy, and support
-# documentation.
-
-# GitHub recommends pinning actions to a commit SHA.
-# To get a newer version, you will need to update the SHA.
-# You can also reference a tag or branch, but the action may change without warning.
+# Publishes to PyPI when a GitHub Release is created and published.
+# Trigger: manually create a release in GitHub UI, which allows review
+# of release notes before anything is pushed to PyPI.
+# See: https://docs.pypi.org/trusted-publishers/using-a-publisher/
 
 name: Upload Python Package
 
 on:
-  push:
-    tags:
-    - 'v*' # Push events to matching v*, i.e. v1.0, v20.15.10
-
-permissions:
-  contents: read
+  release:
+    types: [published]
 
 jobs:
   release-build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      attestations: write # for build provenance attestation
+      id-token: write # to mint OIDC token for attestation
 
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v4
+        with:
+          fetch-depth: 0 # required for setuptools-scm to resolve version from tags
+      - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v5
         with:
           python-version: "3.x"
       - name: Install dependencies
@@ -32,62 +30,33 @@ jobs:
           pip install build
       - name: Build package
         run: python -m build
-      - name: Publish artifacts
-        uses: actions/upload-artifact@v4
+      - name: Attest generated files
+        uses: actions/attest-build-provenance@96278af6caaf10aea03fd8d33a09a777ca52d62f # v2
+        with:
+          subject-path: dist/
+      - name: Upload release distributions
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v4
         with:
           name: release-dists
           path: dist/
 
   pypi-publish:
     runs-on: ubuntu-latest
+    needs: [release-build]
 
-    needs:
-      - release-build
-
-    permissions:
-      id-token: write # mandatory for trusted publishing
-
-    # Dedicated environments with protections for publishing are strongly recommended.
     environment:
       name: pypi
       url: https://pypi.org/p/cac-core
 
+    permissions:
+      id-token: write # mandatory for trusted publishing
+
     steps:
       - name: Retrieve release distributions
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v4
         with:
           name: release-dists
           path: dist/
 
       - name: Publish release distributions to PyPI
-        uses: pypa/gh-action-pypi-publish@release/v1
-
-  github-release:
-    name: Create a release with artifacts
-    needs:
-    - pypi-publish
-    runs-on: ubuntu-latest
-
-    permissions:
-      contents: write  # IMPORTANT: mandatory for making GitHub Releases
-      id-token: write  # IMPORTANT: mandatory for sigstore
-
-    steps:
-      - name: Retrieve release distributions
-        uses: actions/download-artifact@v4
-        with:
-          name: release-dists
-          path: dist/
-
-      - name: Verify distribution files
-        run: |
-          ls -la dist/
-          test -n "$(find dist -name '*.whl')" || (echo "Wheel file missing" && exit 1)
-          test -n "$(find dist -name '*.tar.gz')" || (echo "Source distribution missing" && exit 1)
-
-      - name: Create release
-        uses: softprops/action-gh-release@v1
-        with:
-          files: dist/*
-          generate_release_notes: true
-          token: ${{ secrets.GITHUB_TOKEN }}
+        uses: pypa/gh-action-pypi-publish@ed0c53931b1dc9bd32cbe73a98c7f6766f8a527e # v1.13.0

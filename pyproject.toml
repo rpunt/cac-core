@@ -1,6 +1,6 @@
 [project]
 name = "cac-core"
-version = "0.6.1"
+dynamic = ["version"]
 description = ""
 readme = "README.md"
 license = "MIT"
@@ -35,6 +35,7 @@ test = [
     "pytest>=8.3.5",
 ]
 lint = [
+    "ruff>=0.9.0",
     "black>=23.3.0",
     "isort>=5.12.0",
     "pylint>=2.17.0",
@@ -48,8 +49,10 @@ validation = [
 ]
 
 [build-system]
-requires = ["setuptools>=42", "wheel"]
+requires = ["setuptools>=61.0", "setuptools-scm"]
 build-backend = "setuptools.build_meta"
+
+[tool.setuptools_scm]
 
 [tool.setuptools.packages.find]
 where = ["."]
