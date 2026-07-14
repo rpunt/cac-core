@@ -37,6 +37,8 @@ class Command(metaclass=abc.ABCMeta):
         Initialize the command.
         """
         self.log = logging.getLogger(self.__class__.__name__)
+        if log_level is not None:
+            self.log.setLevel(log_level)
 
     @staticmethod
     def define_common_arguments(parser) -> None:
@@ -131,8 +133,11 @@ class Command(metaclass=abc.ABCMeta):
             if args.get("verbose", False):
                 self.log.setLevel(logging.DEBUG)
 
-            # Validate arguments first
-            self.validate_args(args)
+            # Validate arguments first. Subclasses may either raise CommandError
+            # or signal invalid input by returning False (per the documented
+            # return contract); honor both.
+            if self.validate_args(args) is False:
+                raise CommandError("Argument validation failed")
 
             # Execute the command
             result = self.execute(args)

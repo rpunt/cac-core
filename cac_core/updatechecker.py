@@ -20,9 +20,13 @@ from packaging.version import InvalidVersion
 # Set up logging
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
-handler = logging.StreamHandler()
-handler.setFormatter(logging.Formatter("%(levelname)s: %(message)s"))
-logger.addHandler(handler)
+if not logger.handlers:
+    handler = logging.StreamHandler()
+    handler.setFormatter(logging.Formatter("%(levelname)s: %(message)s"))
+    logger.addHandler(handler)
+    # Don't also bubble to ancestor handlers (e.g. a root handler configured
+    # by the host application) and emit every line twice.
+    logger.propagate = False
 
 
 class UpdateChecker:
@@ -89,9 +93,20 @@ class UpdateChecker:
             import tempfile
 
             self.data_dir = Path(tempfile.gettempdir()) / package_name
-            self.data_dir.mkdir(exist_ok=True, parents=True)
+            try:
+                self.data_dir.mkdir(exist_ok=True, parents=True)
+            except (PermissionError, OSError) as tmp_err:
+                # Even the temp dir is unwritable; degrade to in-memory-only
+                # rather than crashing the caller's constructor.
+                logger.warning(
+                    f"Could not create fallback data directory {self.data_dir}: {tmp_err}"
+                )
+                self.data_dir = None
 
-        self.data_file = self.data_dir / "update.json"
+        self.data_file = (self.data_dir / "update.json") if self.data_dir else None
+
+        # Whether the most recent fetch succeeded; gates last_check advancement.
+        self._last_fetch_ok = True
 
         # Load existing data
         self.update_data = self._load_update_data()
@@ -99,12 +114,22 @@ class UpdateChecker:
     def _load_update_data(self):
         """Load update data from the local file."""
         try:
-            if self.data_file.exists():
+            if self.data_file and self.data_file.exists():
                 with open(self.data_file, "r", encoding="utf-8") as f:
                     data = json.load(f)
-                    # Convert string to datetime
-                    if data.get("last_check"):
-                        data["last_check"] = datetime.fromisoformat(data["last_check"])
+                    # A valid-JSON-but-non-object file (null, list, scalar) is
+                    # not usable update data; fall back to defaults.
+                    if not isinstance(data, dict):
+                        raise ValueError("update data is not a JSON object")
+                    # Convert string to datetime; tolerate a malformed or
+                    # non-string last_check instead of crashing.
+                    last_check = data.get("last_check")
+                    if last_check:
+                        try:
+                            data["last_check"] = datetime.fromisoformat(last_check)
+                        except (TypeError, ValueError):
+                            logger.debug("Invalid last_check value; ignoring it")
+                            data["last_check"] = None
                     return data
         except (json.JSONDecodeError, ValueError) as e:
             logger.debug(f"Error loading update data: {e}")
@@ -120,6 +145,9 @@ class UpdateChecker:
 
     def _save_update_data(self):
         """Save update data to the local file."""
+        if not self.data_file:
+            # No writable location available; nothing to persist.
+            return
         try:
             # Convert datetime to string for JSON serialization
             save_data = self.update_data.copy()
@@ -159,9 +187,13 @@ class UpdateChecker:
             latest_version = self._fetch_latest_version()
 
             # Update the data
-            self.update_data["last_check"] = datetime.now()
             self.update_data["latest_version"] = latest_version
             self.update_data["current_version"] = self.current_version
+            # Only advance last_check on a successful fetch, so a transient
+            # network/parse failure doesn't suppress retries for the whole
+            # check interval.
+            if self._last_fetch_ok:
+                self.update_data["last_check"] = datetime.now()
 
             # Save the updated data
             self._save_update_data()
@@ -171,6 +203,7 @@ class UpdateChecker:
 
     def _fetch_latest_version(self):
         """Fetch the latest version from the configured source."""
+        self._last_fetch_ok = True
         try:
             response = requests.get(self.update_url, timeout=5)
             response.raise_for_status()
@@ -184,9 +217,11 @@ class UpdateChecker:
 
         except requests.RequestException as e:
             logger.debug(f"Error checking for updates: {e}")
+            self._last_fetch_ok = False
             return self.update_data.get("latest_version") or self.current_version
         except (json.JSONDecodeError, KeyError) as e:
             logger.debug(f"Error parsing update response: {e}")
+            self._last_fetch_ok = False
             return self.update_data.get("latest_version") or self.current_version
 
     def get_update_status(self):

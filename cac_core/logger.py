@@ -34,26 +34,38 @@ def new(name, level=logging.INFO, format_string=None) -> logging.Logger:
     """
     logger = logging.getLogger(name)
 
+    # Normalize string level names (e.g. "DEBUG") to their numeric value so
+    # level comparisons below work regardless of how the caller passed it.
+    if isinstance(level, str):
+        level = logging.getLevelName(level.upper())
+        if not isinstance(level, int):
+            level = logging.INFO
+
     # Always update the level so callers can reconfigure after initial creation
     # (e.g., switching to DEBUG after parsing --verbose)
     logger.setLevel(level)
 
-    # Only add handler if the logger doesn't already have one
+    # Choose the format: verbose (DEBUG or lower) gets the detailed layout.
+    # Use <= so sub-DEBUG numeric levels also get the verbose format.
+    if not format_string:
+        if level <= logging.DEBUG:
+            format_string = "%(asctime)s [%(levelname)s] (%(processName)s %(threadName)s) %(module)s:%(lineno)d: %(message)s"
+        else:
+            format_string = "%(asctime)s [%(levelname)s] %(message)s"
+
+    formatter = logging.Formatter(format_string)
+
     if not logger.handlers:
         sh = logging.StreamHandler()
-
-        # Use provided format or default
-        if not format_string:
-            if level == logging.DEBUG:
-                format_string = "%(asctime)s [%(levelname)s] (%(processName)s %(threadName)s) %(module)s:%(lineno)d: %(message)s"
-            else:
-                format_string = "%(asctime)s [%(levelname)s] %(message)s"
-
-        formatter = logging.Formatter(format_string)
         sh.setFormatter(formatter)
         logger.addHandler(sh)
         # This logger has its own handler; don't also bubble records to
         # ancestor handlers (e.g. root) and emit every line twice.
         logger.propagate = False
+    else:
+        # Reconfigure existing handlers so a later new(name, level=DEBUG) call
+        # (e.g. after parsing --verbose) actually updates the output format.
+        for handler in logger.handlers:
+            handler.setFormatter(formatter)
 
     return logger

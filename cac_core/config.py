@@ -221,7 +221,16 @@ class Config:
 
         # Navigate to the nested location, creating dictionaries as needed
         for part in parts[:-1]:
-            if part not in current or not isinstance(current[part], dict):
+            if part not in current:
+                current[part] = {}
+            elif not isinstance(current[part], dict):
+                # An existing non-dict value blocks the nested path; warn before
+                # replacing it so silently destroying data is at least visible.
+                logger.warning(
+                    "Overwriting non-dict value at %r while setting %r",
+                    part,
+                    key_path,
+                )
                 current[part] = {}
             current = current[part]
 
@@ -377,9 +386,15 @@ class Config:
             # Ensure the directory exists
             os.makedirs(os.path.dirname(self.config_file), exist_ok=True)
 
+            # config_file_path is a runtime-derived convenience key, not user
+            # data; don't persist it (or a stale absolute path) into the YAML.
+            save_data = {
+                k: v for k, v in self.config.items() if k != "config_file_path"
+            }
+
             # Write the config to file
             with open(self.config_file, "w", encoding="utf-8") as f:
-                yaml.dump(self.config, f)
+                yaml.dump(save_data, f)
 
             return True
         except (IOError, OSError) as e:
