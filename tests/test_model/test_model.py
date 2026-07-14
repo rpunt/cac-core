@@ -55,6 +55,21 @@ class TestModel:
         assert model.get("name") == "Test Project"
         assert model.get("nonexistent", "default") == "default"
 
+    def test_model_iteration_yields_keys(self):
+        """Iterating a Model yields keys (mapping protocol), like a dict."""
+        model = cac.model.Model({"a": 1, "b": 2, "c": 3})
+
+        # __iter__ yields keys, in insertion order, matching keys().
+        assert list(model) == ["a", "b", "c"]
+        assert list(model) == model.keys()
+
+        # Standard mapping operations behave consistently.
+        assert set(model) == {"a", "b", "c"}
+        assert dict(model) == {"a": 1, "b": 2, "c": 3}
+
+        # The documented way to iterate pairs is items().
+        assert dict(model.items()) == {"a": 1, "b": 2, "c": 3}
+
     def test_model_to_dict(self, sample_data):
         """Test conversion to dictionary."""
         model = cac.model.Model(sample_data)

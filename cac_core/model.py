@@ -85,10 +85,11 @@ class Model:
         )
 
     def __iter__(self):
-        # Iterate in insertion order so key/value pairing stays consistent
-        # with keys()/to_dict(); field_names is an unordered set.
+        # Mapping protocol: iterating a Model yields its keys (in insertion
+        # order), consistent with dict and with keys(). Use items() for
+        # key/value pairs and values() for values.
         for key in self._key_order:
-            yield key, self.data.get(key)
+            yield key
 
     def items(self) -> List[Tuple[str, Any]]:
         """Returns key-value pairs as a list of tuples"""
