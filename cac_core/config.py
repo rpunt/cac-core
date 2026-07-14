@@ -74,8 +74,21 @@ class Config:
         self._load_env_vars()
 
         # Add each config key-value pair as an object attribute
-        # Done after env var loading so attributes reflect overrides
+        # Done after env var loading so attributes reflect overrides.
+        # Skip keys that would shadow existing methods or instance attributes
+        # (e.g. get/set/save/load, or config/config_file/env_prefix) or private
+        # attributes; those remain accessible via get()/dict-style access
+        # instead of clobbering the class API or internal state. hasattr(self,
+        # ...) covers both class members and already-set instance attributes.
         for key, value in self.config.items():
+            if key.startswith("_") or hasattr(self, key):
+                logger.warning(
+                    "Config key %r collides with a reserved attribute; "
+                    "not exposing it as an attribute (use get(%r) instead).",
+                    key,
+                    key,
+                )
+                continue
             setattr(self, key, value)
 
     def _load_env_vars(self):
@@ -95,13 +108,40 @@ class Config:
                 continue
 
             # Remove prefix and convert to lowercase
-            config_key = env_key[len(f"{self.env_prefix}_") :].lower()
+            raw_key = env_key[len(f"{self.env_prefix}_") :].lower()
 
-            # Replace underscores with dots for nested keys
-            config_key = config_key.replace("_", ".")
+            # Prefer an existing top-level key that matches literally (so keys
+            # that legitimately contain underscores, e.g. "log_level", can be
+            # overridden); otherwise map underscores to dots for nested keys.
+            if raw_key in self.config:
+                config_key = raw_key
+            else:
+                config_key = raw_key.replace("_", ".")
+
+            # Coerce the string env value to match the existing value's type,
+            # so numeric/boolean config values aren't silently turned to strings.
+            value = self._coerce_env_value(config_key, env_value)
 
             # Set the value in our config
-            self.set(config_key, env_value)
+            self.set(config_key, value)
+
+    def _coerce_env_value(self, config_key, env_value):
+        """
+        Coerce a string environment value to the type of the existing config
+        value at ``config_key`` (bool/int/float). Falls back to the raw string
+        if there is no existing typed value or the conversion fails.
+        """
+        current = self.get(config_key)
+        try:
+            if isinstance(current, bool):
+                return env_value.strip().lower() in ("1", "true", "yes", "on")
+            if isinstance(current, int):
+                return int(env_value)
+            if isinstance(current, float):
+                return float(env_value)
+        except (ValueError, AttributeError):
+            return env_value
+        return env_value
 
     def _load_config(self):
         """
@@ -183,7 +223,16 @@ class Config:
 
         # Navigate to the nested location, creating dictionaries as needed
         for part in parts[:-1]:
-            if part not in current or not isinstance(current[part], dict):
+            if part not in current:
+                current[part] = {}
+            elif not isinstance(current[part], dict):
+                # An existing non-dict value blocks the nested path; warn before
+                # replacing it so silently destroying data is at least visible.
+                logger.warning(
+                    "Overwriting non-dict value at %r while setting %r",
+                    part,
+                    key_path,
+                )
                 current[part] = {}
             current = current[part]
 
@@ -244,11 +293,42 @@ class Config:
             with open(self.config_file, "r", encoding="utf-8") as f:
                 user_config = yaml.safe_load(f)
                 if user_config:
-                    config.update(user_config)
+                    # Deep-merge so a user override of one nested key does not
+                    # drop sibling default keys in the same subtree.
+                    config = self._deep_merge(config, user_config)
         except Exception as e:
             logger.error("Error reading user config file %s: %s", self.config_file, e)
 
         return config
+
+    @staticmethod
+    def _deep_merge(base, override):
+        """
+        Recursively merge ``override`` into ``base`` and return the result.
+
+        Nested dictionaries are merged key-by-key so that overriding a single
+        nested value preserves the other keys defined in the base dict. Any
+        non-dict value (or a dict overriding a non-dict, and vice versa)
+        replaces the base value outright.
+
+        Args:
+            base (dict): The base dictionary (e.g. default config).
+            override (dict): The dictionary whose values take precedence.
+
+        Returns:
+            dict: A new dictionary containing the merged result.
+        """
+        merged = dict(base)
+        for key, value in override.items():
+            if (
+                key in merged
+                and isinstance(merged[key], dict)
+                and isinstance(value, dict)
+            ):
+                merged[key] = Config._deep_merge(merged[key], value)
+            else:
+                merged[key] = value
+        return merged
 
     def _load_default_config(self, module_name):
         """
@@ -266,6 +346,11 @@ class Config:
         except KeyError:
             # this exception mostly covers testing cases where there's no actual module in the call stack
             # print(f"Module {module_name} not found in sys.modules.")
+            return default_config
+
+        # Namespace/frozen packages may have __file__ = None; there is no
+        # on-disk config directory to derive, so return empty defaults.
+        if not module_path:
             return default_config
 
         module_dir = os.path.dirname(module_path)
@@ -303,9 +388,15 @@ class Config:
             # Ensure the directory exists
             os.makedirs(os.path.dirname(self.config_file), exist_ok=True)
 
+            # config_file_path is a runtime-derived convenience key, not user
+            # data; don't persist it (or a stale absolute path) into the YAML.
+            save_data = {
+                k: v for k, v in self.config.items() if k != "config_file_path"
+            }
+
             # Write the config to file
             with open(self.config_file, "w", encoding="utf-8") as f:
-                yaml.dump(self.config, f)
+                yaml.dump(save_data, f)
 
             return True
         except (IOError, OSError) as e:
@@ -345,14 +436,15 @@ class Config:
         """
         try:
             import jsonschema  # pylint: disable=import-outside-toplevel
+        except ImportError:
+            logger.warning("jsonschema package not installed, skipping validation")
+            return True, ["jsonschema not installed"]
 
+        try:
             jsonschema.validate(self.config, schema)
             return True, []
         except jsonschema.exceptions.ValidationError as e:
             return False, [str(e)]
-        except ImportError:
-            logger.warning("jsonschema package not installed, skipping validation")
-            return True, ["jsonschema not installed"]
 
     def __enter__(self):
         """Support for with statement: with Config() as config:"""

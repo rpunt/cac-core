@@ -8,6 +8,7 @@ parsing, execution flow, error handling, and subclass behavior.
 import argparse
 import logging
 from unittest.mock import patch  # , MagicMock
+
 import pytest
 
 # import cac_core as cac
@@ -91,7 +92,9 @@ class TestCommand:
         """Test that define_arguments adds common arguments."""
         parser = simple_command.define_arguments(mock_parser)
 
-        actions = {action.dest: action for action in parser._actions}  # pylint: disable=protected-access
+        actions = {
+            action.dest: action for action in parser._actions
+        }  # pylint: disable=protected-access
         assert "output" in actions
         assert "test" in actions  # Custom argument
 
@@ -103,7 +106,9 @@ class TestCommand:
         Command.define_common_arguments(mock_parser)
 
         # Check that there's only one output argument and it hasn't been overridden
-        output_actions = [a for a in mock_parser._actions if a.dest == "output"]  # pylint: disable=protected-access
+        output_actions = [
+            a for a in mock_parser._actions if a.dest == "output"
+        ]  # pylint: disable=protected-access
         assert len(output_actions) == 1
         assert output_actions[0].choices == [
             "csv",
@@ -157,15 +162,24 @@ class TestCommand:
         assert "Unexpected error" in result.message
 
     def test_verbose_mode_changes_log_level(self, simple_command):
-        """Test that verbose flag changes log level."""
+        """Verbose sets DEBUG during execution and restores the level after."""
         original_level = simple_command.log.level
 
-        simple_command.safe_execute({"verbose": True})
+        # Capture the level while execute() is running.
+        observed = {}
 
-        assert simple_command.log.level == logging.DEBUG
+        def record_level(_args):
+            observed["level"] = simple_command.log.level
+            return None
 
-        # Reset log level
-        simple_command.log.setLevel(original_level)
+        with patch.object(simple_command, "execute", side_effect=record_level):
+            simple_command.safe_execute({"verbose": True})
+
+        # DEBUG was active during the command...
+        assert observed["level"] == logging.DEBUG
+        # ...and the shared logger's level is restored afterward so it does not
+        # leak DEBUG into subsequent non-verbose runs.
+        assert simple_command.log.level == original_level
 
     def test_validate_args(self, simple_command):
         """Test argument validation."""

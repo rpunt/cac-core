@@ -37,6 +37,8 @@ class Command(metaclass=abc.ABCMeta):
         Initialize the command.
         """
         self.log = logging.getLogger(self.__class__.__name__)
+        if log_level is not None:
+            self.log.setLevel(log_level)
 
     @staticmethod
     def define_common_arguments(parser) -> None:
@@ -122,13 +124,20 @@ class Command(metaclass=abc.ABCMeta):
         Returns:
             tuple: (success, result_or_error)
         """
+        # Loggers are process-wide singletons keyed by class name, so raising
+        # the level for a verbose run would leak DEBUG into later non-verbose
+        # runs. Remember the prior level and restore it when we're done.
+        previous_level = self.log.level
         try:
             # Set log level if verbose flag is present
             if args.get("verbose", False):
                 self.log.setLevel(logging.DEBUG)
 
-            # Validate arguments first
-            self.validate_args(args)
+            # Validate arguments first. Subclasses may either raise CommandError
+            # or signal invalid input by returning False (per the documented
+            # return contract); honor both.
+            if self.validate_args(args) is False:
+                raise CommandError("Argument validation failed")
 
             # Execute the command
             result = self.execute(args)
@@ -142,3 +151,7 @@ class Command(metaclass=abc.ABCMeta):
             # Catch unexpected exceptions
             self.log.exception(f"Unexpected error executing {self.__class__.__name__}")
             return False, CommandError(f"Unexpected error: {str(e)}")
+
+        finally:
+            if args.get("verbose", False):
+                self.log.setLevel(previous_level)

@@ -10,6 +10,7 @@ tables and JSON, and adapts to different terminal environments.
 
 import json
 import logging
+
 import tabulate
 
 
@@ -44,7 +45,7 @@ class Output:
 
         For table output:
         - Complex nested structures are flattened for tabular display
-        - Headers are derived from the first model's keys
+        - Headers are the union of all models' keys (first-seen order)
         - Displays a row count after the table
 
         Args:
@@ -99,8 +100,8 @@ class Output:
             if not data_models:
                 self.logger.info("No results were found")
                 return
-            self.__resolve_models(data_models)
-            self.__output_to_table(data_models, table_options)
+            resolved = self.__resolve_models(data_models)
+            self.__output_to_table(resolved, table_options)
 
     def _get_param(self, key, default=None):
         """
@@ -130,12 +131,19 @@ class Output:
     def __create_logger(self):
         logger = logging.getLogger("OutputTable")
         logger.setLevel(logging.INFO)
-        sh = logging.StreamHandler()
-        formatter = logging.Formatter(
-            "%(asctime)s [%(levelname)s] (%(processName)s %(threadName)s) %(module)s:%(lineno)d: %(message)s"
-        )
-        sh.setFormatter(formatter)
-        logger.addHandler(sh)
+        # The named logger is a process-wide singleton; only attach a handler
+        # once so repeated Output() instances don't produce duplicate output.
+        if not logger.handlers:
+            sh = logging.StreamHandler()
+            formatter = logging.Formatter(
+                "%(asctime)s [%(levelname)s] (%(processName)s %(threadName)s) %(module)s:%(lineno)d: %(message)s"
+            )
+            sh.setFormatter(formatter)
+            logger.addHandler(sh)
+        # Don't also bubble to ancestor handlers (e.g. root) and double-log.
+        # Set unconditionally so propagation is disabled even when a handler
+        # was configured elsewhere.
+        logger.propagate = False
         return logger
 
     def __models_to_dict(self, data_models):
@@ -148,18 +156,46 @@ class Output:
     def __output_to_json(self, data_models):
         print(json.dumps(self.__models_to_dict(data_models)))
 
-    def __output_to_table(self, data_models, _table_options):
+    def __output_to_table(self, data_models, table_options=None):
         if not data_models:
             return
 
-        # Get ordered headers from first model
-        headers = list(data_models[0].keys())
+        table_options = table_options or {}
+        exclude = set(table_options.get("exclude") or [])
+        header_map = table_options.get("headers") or {}
+        formatters = table_options.get("formatters") or {}
+        widths = table_options.get("width") or {}
+
+        # Union of column keys across all rows (first-seen order), so columns
+        # present only in later rows are not silently dropped. A seen-set keeps
+        # membership checks O(1) rather than O(n) against the growing list.
+        columns = []
+        seen = set()
+        for model in data_models:
+            for key in model.keys():
+                if key not in exclude and key not in seen:
+                    seen.add(key)
+                    columns.append(key)
+
+        # Display headers honor any custom header mappings
+        headers = [header_map.get(key, key) for key in columns]
 
         table_data = []
         for model in data_models:
-            # For each model, extract values in the same order as headers
-            row = [model.get(key) for key in headers]
+            row = []
+            for key in columns:
+                value = model.get(key)
+                if key in formatters:
+                    value = formatters[key](value)
+                row.append(value)
             table_data.append(row)
+
+        # Per-column fixed widths, aligned with the column order (None = auto)
+        maxcolwidths = (
+            [widths.get(key) for key in columns]
+            if any(key in widths for key in columns)
+            else None
+        )
 
         print(
             tabulate.tabulate(
@@ -168,20 +204,38 @@ class Output:
                 tablefmt="pretty",
                 stralign="left",
                 numalign="right",
+                maxcolwidths=maxcolwidths,
             )
         )
         row_count = len(table_data)
         print(f"{row_count} {'row' if row_count == 1 else 'rows'}")
 
     def __resolve_models(self, data_models):
+        # Build flattened plain-dict rows WITHOUT mutating the caller's models;
+        # rendering must not corrupt the caller's data as a side effect.
+        resolved = []
         for model in data_models:
+            row = {}
             for k, v in model.items():
-                if isinstance(v, dict):
-                    model[k] = json.dumps(v)
-                elif isinstance(v, list):
-                    model[k] = ", ".join(
-                        [json.dumps(x) if hasattr(x, "to_dict") else str(x) for x in v]
+                if isinstance(v, list):
+                    row[k] = ", ".join(
+                        [
+                            (
+                                json.dumps(x.to_dict())
+                                if hasattr(x, "to_dict")
+                                else (json.dumps(x) if isinstance(x, dict) else str(x))
+                            )
+                            for x in v
+                        ]
                     )
+                elif hasattr(v, "to_dict"):
+                    row[k] = json.dumps(v.to_dict())
+                elif isinstance(v, dict):
+                    row[k] = json.dumps(v)
+                else:
+                    row[k] = v
+            resolved.append(row)
+        return resolved
 
 
 # Example usage

@@ -6,12 +6,12 @@ These tests verify that the UpdateChecker correctly checks for package updates,
 handles various error conditions gracefully, and properly notifies users.
 """
 
+import importlib.metadata
 import json
 import tempfile
 from datetime import datetime, timedelta
-import importlib.metadata
 from pathlib import Path
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 import requests
@@ -302,10 +302,13 @@ class TestUpdateChecker:
         status = mock_update_checker.get_update_status()
         assert status["update_available"] is False
 
-        # Test with invalid version
+        # Test with invalid (non-PEP 440) version: should degrade gracefully
+        # to "no update available" rather than raising InvalidVersion.
+        mock_update_checker.current_version = "1.0.0"
         mock_update_checker.update_data["latest_version"] = "invalid"
-        with pytest.raises(Exception):
-            mock_update_checker.get_update_status()
+        status = mock_update_checker.get_update_status()
+        assert status["update_available"] is False
+        assert status["latest_version"] == "invalid"
 
     def test_notify_if_update_available(self, mock_update_checker):
         """Test update notification using direct logger mocking."""
