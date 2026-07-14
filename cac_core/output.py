@@ -148,18 +148,38 @@ class Output:
     def __output_to_json(self, data_models):
         print(json.dumps(self.__models_to_dict(data_models)))
 
-    def __output_to_table(self, data_models, _table_options):
+    def __output_to_table(self, data_models, table_options=None):
         if not data_models:
             return
 
-        # Get ordered headers from first model
-        headers = list(data_models[0].keys())
+        table_options = table_options or {}
+        exclude = set(table_options.get("exclude") or [])
+        header_map = table_options.get("headers") or {}
+        formatters = table_options.get("formatters") or {}
+        widths = table_options.get("width") or {}
+
+        # Get ordered column keys from first model, dropping excluded columns
+        columns = [key for key in data_models[0].keys() if key not in exclude]
+
+        # Display headers honor any custom header mappings
+        headers = [header_map.get(key, key) for key in columns]
 
         table_data = []
         for model in data_models:
-            # For each model, extract values in the same order as headers
-            row = [model.get(key) for key in headers]
+            row = []
+            for key in columns:
+                value = model.get(key)
+                if key in formatters:
+                    value = formatters[key](value)
+                row.append(value)
             table_data.append(row)
+
+        # Per-column fixed widths, aligned with the column order (None = auto)
+        maxcolwidths = (
+            [widths.get(key) for key in columns]
+            if any(key in widths for key in columns)
+            else None
+        )
 
         print(
             tabulate.tabulate(
@@ -168,6 +188,7 @@ class Output:
                 tablefmt="pretty",
                 stralign="left",
                 numalign="right",
+                maxcolwidths=maxcolwidths,
             )
         )
         row_count = len(table_data)
@@ -180,7 +201,10 @@ class Output:
                     model[k] = json.dumps(v)
                 elif isinstance(v, list):
                     model[k] = ", ".join(
-                        [json.dumps(x) if hasattr(x, "to_dict") else str(x) for x in v]
+                        [
+                            json.dumps(x.to_dict()) if hasattr(x, "to_dict") else str(x)
+                            for x in v
+                        ]
                     )
 
 

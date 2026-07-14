@@ -85,13 +85,15 @@ class Model:
         )
 
     def __iter__(self):
-        for key in self.field_names:
-            yield key, getattr(self, key)
+        # Iterate in insertion order so key/value pairing stays consistent
+        # with keys()/to_dict(); field_names is an unordered set.
+        for key in self._key_order:
+            yield key, self.data.get(key)
 
     def items(self) -> List[Tuple[str, Any]]:
         """Returns key-value pairs as a list of tuples"""
         result = []
-        for key in self.field_names:
+        for key in self._key_order:
             # Get the actual value from data dictionary instead of using getattr
             value = self.data.get(key)
             result.append((key, value))
@@ -99,7 +101,7 @@ class Model:
 
     def values(self) -> List[Any]:
         """Returns values as a list"""
-        return [self.data.get(key) for key in self.field_names]
+        return [self.data.get(key) for key in self._key_order]
 
     def __str__(self):
         return f"#<{self.__class__.__name__} {self.current_state()}>"
@@ -166,7 +168,7 @@ class Model:
         Returns:
             str: A string representation of the model's current state.
         """
-        return " ".join(f"{key}={getattr(self, key)}" for key in self.field_names)
+        return " ".join(f"{key}={self.data.get(key)}" for key in self._key_order)
 
     def _process_results(self, value):
         if isinstance(value, Model):

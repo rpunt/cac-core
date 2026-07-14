@@ -74,8 +74,19 @@ class Config:
         self._load_env_vars()
 
         # Add each config key-value pair as an object attribute
-        # Done after env var loading so attributes reflect overrides
+        # Done after env var loading so attributes reflect overrides.
+        # Skip keys that would shadow existing methods/attributes (e.g. get,
+        # set, save, load) or private attributes; those remain accessible via
+        # get()/dict-style access instead of clobbering the class API.
         for key, value in self.config.items():
+            if key.startswith("_") or hasattr(type(self), key):
+                logger.warning(
+                    "Config key %r collides with a reserved attribute; "
+                    "not exposing it as an attribute (use get(%r) instead).",
+                    key,
+                    key,
+                )
+                continue
             setattr(self, key, value)
 
     def _load_env_vars(self):
@@ -244,11 +255,42 @@ class Config:
             with open(self.config_file, "r", encoding="utf-8") as f:
                 user_config = yaml.safe_load(f)
                 if user_config:
-                    config.update(user_config)
+                    # Deep-merge so a user override of one nested key does not
+                    # drop sibling default keys in the same subtree.
+                    config = self._deep_merge(config, user_config)
         except Exception as e:
             logger.error("Error reading user config file %s: %s", self.config_file, e)
 
         return config
+
+    @staticmethod
+    def _deep_merge(base, override):
+        """
+        Recursively merge ``override`` into ``base`` and return the result.
+
+        Nested dictionaries are merged key-by-key so that overriding a single
+        nested value preserves the other keys defined in the base dict. Any
+        non-dict value (or a dict overriding a non-dict, and vice versa)
+        replaces the base value outright.
+
+        Args:
+            base (dict): The base dictionary (e.g. default config).
+            override (dict): The dictionary whose values take precedence.
+
+        Returns:
+            dict: A new dictionary containing the merged result.
+        """
+        merged = dict(base)
+        for key, value in override.items():
+            if (
+                key in merged
+                and isinstance(merged[key], dict)
+                and isinstance(value, dict)
+            ):
+                merged[key] = Config._deep_merge(merged[key], value)
+            else:
+                merged[key] = value
+        return merged
 
     def _load_default_config(self, module_name):
         """

@@ -15,6 +15,7 @@ import requests
 from datetime import datetime, timedelta
 from pathlib import Path
 from packaging.version import parse as parse_version
+from packaging.version import InvalidVersion
 
 # Set up logging
 logger = logging.getLogger(__name__)
@@ -195,14 +196,23 @@ class UpdateChecker:
         Returns:
             dict: Update status containing current_version, latest_version, and update_available.
         """
-        current = parse_version(self.current_version)
-        latest = parse_version(self.update_data.get("latest_version") or "0.0.0")
+        latest_version = self.update_data.get("latest_version") or "0.0.0"
+        # A remote (e.g. GitHub tag) or hand-edited version may not be PEP 440
+        # compliant; treat an unparseable version as "no update available"
+        # rather than crashing the caller's CLI.
+        try:
+            current = parse_version(self.current_version)
+            latest = parse_version(latest_version)
+            update_available = latest > current
+        except InvalidVersion as e:
+            logger.debug(f"Could not compare versions: {e}")
+            update_available = False
 
         return {
             "package_name": self.package_name,
             "current_version": self.current_version,
             "latest_version": self.update_data.get("latest_version"),
-            "update_available": latest > current,
+            "update_available": update_available,
             "last_checked": self.update_data.get("last_check"),
         }
 
