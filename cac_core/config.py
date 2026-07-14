@@ -106,13 +106,40 @@ class Config:
                 continue
 
             # Remove prefix and convert to lowercase
-            config_key = env_key[len(f"{self.env_prefix}_") :].lower()
+            raw_key = env_key[len(f"{self.env_prefix}_") :].lower()
 
-            # Replace underscores with dots for nested keys
-            config_key = config_key.replace("_", ".")
+            # Prefer an existing top-level key that matches literally (so keys
+            # that legitimately contain underscores, e.g. "log_level", can be
+            # overridden); otherwise map underscores to dots for nested keys.
+            if raw_key in self.config:
+                config_key = raw_key
+            else:
+                config_key = raw_key.replace("_", ".")
+
+            # Coerce the string env value to match the existing value's type,
+            # so numeric/boolean config values aren't silently turned to strings.
+            value = self._coerce_env_value(config_key, env_value)
 
             # Set the value in our config
-            self.set(config_key, env_value)
+            self.set(config_key, value)
+
+    def _coerce_env_value(self, config_key, env_value):
+        """
+        Coerce a string environment value to the type of the existing config
+        value at ``config_key`` (bool/int/float). Falls back to the raw string
+        if there is no existing typed value or the conversion fails.
+        """
+        current = self.get(config_key)
+        try:
+            if isinstance(current, bool):
+                return env_value.strip().lower() in ("1", "true", "yes", "on")
+            if isinstance(current, int):
+                return int(env_value)
+            if isinstance(current, float):
+                return float(env_value)
+        except (ValueError, AttributeError):
+            return env_value
+        return env_value
 
     def _load_config(self):
         """
@@ -310,6 +337,11 @@ class Config:
             # print(f"Module {module_name} not found in sys.modules.")
             return default_config
 
+        # Namespace/frozen packages may have __file__ = None; there is no
+        # on-disk config directory to derive, so return empty defaults.
+        if not module_path:
+            return default_config
+
         module_dir = os.path.dirname(module_path)
         default_config_dir = os.path.join(module_dir, "config")
         default_config_file = os.path.join(default_config_dir, f"{module_name}.yaml")
@@ -387,14 +419,15 @@ class Config:
         """
         try:
             import jsonschema  # pylint: disable=import-outside-toplevel
+        except ImportError:
+            logger.warning("jsonschema package not installed, skipping validation")
+            return True, ["jsonschema not installed"]
 
+        try:
             jsonschema.validate(self.config, schema)
             return True, []
         except jsonschema.exceptions.ValidationError as e:
             return False, [str(e)]
-        except ImportError:
-            logger.warning("jsonschema package not installed, skipping validation")
-            return True, ["jsonschema not installed"]
 
     def __enter__(self):
         """Support for with statement: with Config() as config:"""

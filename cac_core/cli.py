@@ -10,6 +10,8 @@ import argparse
 import logging
 import sys
 
+from cac_core.command import CommandError
+
 logger = logging.getLogger(__name__)
 
 
@@ -64,6 +66,10 @@ class CLI:
 
         try:
             module.execute(self.opts)
+        except CommandError as e:
+            # Honor the exit code the command requested instead of forcing 1.
+            logger.error("Error executing command '%s': %s", command, e.message)
+            sys.exit(e.exit_code)
         except Exception:
             logger.exception("Error executing command '%s'", command)
             sys.exit(1)

@@ -104,8 +104,14 @@ class CredentialManager:
         # Store username for reference
         self.username = username
 
-        # Try to get credential from keychain
-        credential_string = keyring.get_password(self.module_name, username)
+        # Try to get credential from keychain. Guard against backend errors
+        # (e.g. locked/unavailable keyring) so we degrade to a prompt rather
+        # than crashing the caller, matching set/delete_credential behavior.
+        try:
+            credential_string = keyring.get_password(self.module_name, username)
+        except Exception as e:  # pylint: disable=broad-exception-caught
+            logger.error("Failed to read credential for %s: %s", username, e)
+            credential_string = None
 
         # If not found and prompting is enabled
         if not credential_string and prompt:

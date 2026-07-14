@@ -157,15 +157,24 @@ class TestCommand:
         assert "Unexpected error" in result.message
 
     def test_verbose_mode_changes_log_level(self, simple_command):
-        """Test that verbose flag changes log level."""
+        """Verbose sets DEBUG during execution and restores the level after."""
         original_level = simple_command.log.level
 
-        simple_command.safe_execute({"verbose": True})
+        # Capture the level while execute() is running.
+        observed = {}
 
-        assert simple_command.log.level == logging.DEBUG
+        def record_level(_args):
+            observed["level"] = simple_command.log.level
+            return None
 
-        # Reset log level
-        simple_command.log.setLevel(original_level)
+        with patch.object(simple_command, "execute", side_effect=record_level):
+            simple_command.safe_execute({"verbose": True})
+
+        # DEBUG was active during the command...
+        assert observed["level"] == logging.DEBUG
+        # ...and the shared logger's level is restored afterward so it does not
+        # leak DEBUG into subsequent non-verbose runs.
+        assert simple_command.log.level == original_level
 
     def test_validate_args(self, simple_command):
         """Test argument validation."""

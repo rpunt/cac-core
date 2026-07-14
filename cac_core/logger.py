@@ -52,5 +52,8 @@ def new(name, level=logging.INFO, format_string=None) -> logging.Logger:
         formatter = logging.Formatter(format_string)
         sh.setFormatter(formatter)
         logger.addHandler(sh)
+        # This logger has its own handler; don't also bubble records to
+        # ancestor handlers (e.g. root) and emit every line twice.
+        logger.propagate = False
 
     return logger

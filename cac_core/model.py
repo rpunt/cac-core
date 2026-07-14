@@ -125,7 +125,8 @@ class Model:
         Returns:
             list: A list of all keys in the model in insertion order.
         """
-        return self._key_order
+        # Return a copy so callers cannot mutate the model's private ordering.
+        return list(self._key_order)
 
     def to_dict(self):
         """
@@ -206,7 +207,16 @@ class Model:
             self.field_names.add(key)
             self._key_order.append(key)
             self.add_key(key, value)
-        self.data[key] = value
+        # Wrap nested dicts/lists in Model like __init__ does, so nested
+        # attribute access works regardless of how the value was set.
+        if isinstance(value, list):
+            self.data[key] = [
+                Model(val) if isinstance(val, dict) else val for val in value
+            ]
+        elif isinstance(value, dict):
+            self.data[key] = Model(value)
+        else:
+            self.data[key] = value
 
     def __contains__(self, key):
         """Support for 'in' operator: key in model"""
@@ -230,6 +240,8 @@ class Model:
         new_model.data = copy.copy(self.data)
         new_model.field_names = copy.copy(self.field_names)
         new_model._key_order = copy.copy(self._key_order)
+        new_model._formatters = copy.copy(self._formatters)
+        new_model._remove_keys = copy.copy(self._remove_keys)
         return new_model
 
     def __deepcopy__(self, memo):
@@ -239,6 +251,8 @@ class Model:
         new_model.data = copy.deepcopy(self.data, memo)
         new_model.field_names = copy.deepcopy(self.field_names, memo)
         new_model._key_order = copy.deepcopy(self._key_order, memo)
+        new_model._formatters = copy.deepcopy(self._formatters, memo)
+        new_model._remove_keys = copy.deepcopy(self._remove_keys, memo)
         return new_model
 
     def validate(self) -> List[str]:

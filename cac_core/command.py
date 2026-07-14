@@ -122,6 +122,10 @@ class Command(metaclass=abc.ABCMeta):
         Returns:
             tuple: (success, result_or_error)
         """
+        # Loggers are process-wide singletons keyed by class name, so raising
+        # the level for a verbose run would leak DEBUG into later non-verbose
+        # runs. Remember the prior level and restore it when we're done.
+        previous_level = self.log.level
         try:
             # Set log level if verbose flag is present
             if args.get("verbose", False):
@@ -142,3 +146,7 @@ class Command(metaclass=abc.ABCMeta):
             # Catch unexpected exceptions
             self.log.exception(f"Unexpected error executing {self.__class__.__name__}")
             return False, CommandError(f"Unexpected error: {str(e)}")
+
+        finally:
+            if args.get("verbose", False):
+                self.log.setLevel(previous_level)
