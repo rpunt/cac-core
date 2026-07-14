@@ -10,6 +10,7 @@ tables and JSON, and adapts to different terminal environments.
 
 import json
 import logging
+
 import tabulate
 
 

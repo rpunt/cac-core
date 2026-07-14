@@ -6,16 +6,17 @@ This module allows any package to check for updates and notify the user when new
 It supports checking both cac-core itself and any dependent packages.
 """
 
-import os
-import sys
+import importlib.metadata
 import json
 import logging
-import importlib.metadata
-import requests
+import os
+import sys
 from datetime import datetime, timedelta
 from pathlib import Path
-from packaging.version import parse as parse_version
+
+import requests
 from packaging.version import InvalidVersion
+from packaging.version import parse as parse_version
 
 # Set up logging
 logger = logging.getLogger(__name__)

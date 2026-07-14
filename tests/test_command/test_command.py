@@ -8,6 +8,7 @@ parsing, execution flow, error handling, and subclass behavior.
 import argparse
 import logging
 from unittest.mock import patch  # , MagicMock
+
 import pytest
 
 # import cac_core as cac
@@ -91,7 +92,9 @@ class TestCommand:
         """Test that define_arguments adds common arguments."""
         parser = simple_command.define_arguments(mock_parser)
 
-        actions = {action.dest: action for action in parser._actions}  # pylint: disable=protected-access
+        actions = {
+            action.dest: action for action in parser._actions
+        }  # pylint: disable=protected-access
         assert "output" in actions
         assert "test" in actions  # Custom argument
 
@@ -103,7 +106,9 @@ class TestCommand:
         Command.define_common_arguments(mock_parser)
 
         # Check that there's only one output argument and it hasn't been overridden
-        output_actions = [a for a in mock_parser._actions if a.dest == "output"]  # pylint: disable=protected-access
+        output_actions = [
+            a for a in mock_parser._actions if a.dest == "output"
+        ]  # pylint: disable=protected-access
         assert len(output_actions) == 1
         assert output_actions[0].choices == [
             "csv",

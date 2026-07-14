@@ -6,12 +6,12 @@ These tests verify that the UpdateChecker correctly checks for package updates,
 handles various error conditions gracefully, and properly notifies users.
 """
 
+import importlib.metadata
 import json
 import tempfile
 from datetime import datetime, timedelta
-import importlib.metadata
 from pathlib import Path
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 import requests

@@ -11,8 +11,8 @@ The Model class automatically converts nested dictionaries into Model instances
 and supports serialization to dictionaries and JSON for data exchange.
 """
 
-import json
 import copy
+import json
 from typing import Any, Dict, List, Optional, Set, Tuple  # , Union
 
 
