@@ -59,13 +59,15 @@ def new(name, level=logging.INFO, format_string=None) -> logging.Logger:
         sh = logging.StreamHandler()
         sh.setFormatter(formatter)
         logger.addHandler(sh)
-        # This logger has its own handler; don't also bubble records to
-        # ancestor handlers (e.g. root) and emit every line twice.
-        logger.propagate = False
     else:
         # Reconfigure existing handlers so a later new(name, level=DEBUG) call
         # (e.g. after parsing --verbose) actually updates the output format.
         for handler in logger.handlers:
             handler.setFormatter(formatter)
+
+    # This logger has its own handler; don't also bubble records to ancestor
+    # handlers (e.g. root) and emit every line twice. Set unconditionally so
+    # propagation is disabled even when handlers were configured elsewhere.
+    logger.propagate = False
 
     return logger

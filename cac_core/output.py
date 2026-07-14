@@ -140,8 +140,10 @@ class Output:
             )
             sh.setFormatter(formatter)
             logger.addHandler(sh)
-            # Don't also bubble to ancestor handlers (e.g. root) and double-log.
-            logger.propagate = False
+        # Don't also bubble to ancestor handlers (e.g. root) and double-log.
+        # Set unconditionally so propagation is disabled even when a handler
+        # was configured elsewhere.
+        logger.propagate = False
         return logger
 
     def __models_to_dict(self, data_models):
@@ -165,11 +167,14 @@ class Output:
         widths = table_options.get("width") or {}
 
         # Union of column keys across all rows (first-seen order), so columns
-        # present only in later rows are not silently dropped.
+        # present only in later rows are not silently dropped. A seen-set keeps
+        # membership checks O(1) rather than O(n) against the growing list.
         columns = []
+        seen = set()
         for model in data_models:
             for key in model.keys():
-                if key not in exclude and key not in columns:
+                if key not in exclude and key not in seen:
+                    seen.add(key)
                     columns.append(key)
 
         # Display headers honor any custom header mappings

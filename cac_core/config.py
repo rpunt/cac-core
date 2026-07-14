@@ -75,11 +75,13 @@ class Config:
 
         # Add each config key-value pair as an object attribute
         # Done after env var loading so attributes reflect overrides.
-        # Skip keys that would shadow existing methods/attributes (e.g. get,
-        # set, save, load) or private attributes; those remain accessible via
-        # get()/dict-style access instead of clobbering the class API.
+        # Skip keys that would shadow existing methods or instance attributes
+        # (e.g. get/set/save/load, or config/config_file/env_prefix) or private
+        # attributes; those remain accessible via get()/dict-style access
+        # instead of clobbering the class API or internal state. hasattr(self,
+        # ...) covers both class members and already-set instance attributes.
         for key, value in self.config.items():
-            if key.startswith("_") or hasattr(type(self), key):
+            if key.startswith("_") or hasattr(self, key):
                 logger.warning(
                     "Config key %r collides with a reserved attribute; "
                     "not exposing it as an attribute (use get(%r) instead).",

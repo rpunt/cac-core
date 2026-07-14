@@ -25,9 +25,10 @@ if not logger.handlers:
     handler = logging.StreamHandler()
     handler.setFormatter(logging.Formatter("%(levelname)s: %(message)s"))
     logger.addHandler(handler)
-    # Don't also bubble to ancestor handlers (e.g. a root handler configured
-    # by the host application) and emit every line twice.
-    logger.propagate = False
+# Don't also bubble to ancestor handlers (e.g. a root handler configured by the
+# host application) and emit every line twice. Set unconditionally so
+# propagation is disabled even when a handler was configured elsewhere.
+logger.propagate = False
 
 
 class UpdateChecker:
