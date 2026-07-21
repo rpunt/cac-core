@@ -9,13 +9,14 @@ handles various error conditions gracefully, and properly notifies users.
 import importlib.metadata
 import json
 import tempfile
-from datetime import datetime, timedelta
-from pathlib import Path
+from datetime import datetime, timedelta, timezone
+from pathlib import Path, PosixPath
 from unittest.mock import MagicMock, patch
 
 import pytest
 import requests
 
+import cac_core.updatechecker as uc
 from cac_core.updatechecker import UpdateChecker, check_package_for_updates
 
 
@@ -370,6 +371,133 @@ class TestUpdateChecker:
                 assert result is False
                 # Verify no logs when quiet=True
                 assert not mock_logger.info.called
+
+
+class TestUpdateCheckerEdgeCases:
+    """Error/edge paths in data-dir setup, load/save, and check scheduling."""
+
+    @pytest.fixture(autouse=True)
+    def isolated_home(self, tmp_path, monkeypatch):
+        """Keep ~/.config writes inside a temp dir."""
+        monkeypatch.setenv("HOME", str(tmp_path))
+        return tmp_path
+
+    @staticmethod
+    def _write_data_file(home, package, content):
+        data_dir = Path(home) / ".config" / package
+        data_dir.mkdir(parents=True, exist_ok=True)
+        (data_dir / "update.json").write_text(content, encoding="utf-8")
+
+    def test_load_non_dict_json_falls_back_to_default(self, tmp_path):
+        self._write_data_file(tmp_path, "pkg-nondict", "[1, 2, 3]")
+        with patch("importlib.metadata.version", return_value="1.0.0"):
+            checker = UpdateChecker("pkg-nondict")
+        assert checker.update_data["last_check"] is None
+        assert checker.update_data["current_version"] == "1.0.0"
+
+    def test_load_invalid_json_falls_back_to_default(self, tmp_path):
+        self._write_data_file(tmp_path, "pkg-badjson", "{not valid json")
+        with patch("importlib.metadata.version", return_value="1.0.0"):
+            checker = UpdateChecker("pkg-badjson")
+        assert checker.update_data["last_check"] is None
+
+    def test_load_invalid_last_check_is_ignored(self, tmp_path):
+        self._write_data_file(
+            tmp_path,
+            "pkg-badts",
+            json.dumps(
+                {
+                    "last_check": "not-a-date",
+                    "latest_version": "2.0.0",
+                    "current_version": "1.0.0",
+                }
+            ),
+        )
+        with patch("importlib.metadata.version", return_value="1.0.0"):
+            checker = UpdateChecker("pkg-badts")
+        # Bad timestamp dropped, but the rest of the data is kept.
+        assert checker.update_data["last_check"] is None
+        assert checker.update_data["latest_version"] == "2.0.0"
+
+    def test_data_dir_falls_back_to_temp(self):
+        calls = {"n": 0}
+
+        def flaky_mkdir(self, *args, **kwargs):
+            calls["n"] += 1
+            if calls["n"] == 1:  # the ~/.config attempt fails
+                raise OSError("boom")
+            return None  # the temp-dir attempt succeeds
+
+        with (
+            patch("importlib.metadata.version", return_value="1.0.0"),
+            patch.object(Path, "mkdir", flaky_mkdir),
+            patch("cac_core.updatechecker.logger.warning"),
+        ):
+            checker = UpdateChecker("pkg-fallback")
+
+        assert checker.data_dir is not None
+        assert str(checker.data_dir).startswith(tempfile.gettempdir())
+
+    def test_data_dir_all_writes_fail_degrades_to_none(self):
+        def always_fail(self, *args, **kwargs):
+            raise OSError("nope")
+
+        with (
+            patch("importlib.metadata.version", return_value="1.0.0"),
+            patch.object(Path, "mkdir", always_fail),
+            patch("cac_core.updatechecker.logger.warning"),
+        ):
+            checker = UpdateChecker("pkg-nowrite")
+
+        assert checker.data_dir is None
+        assert checker.data_file is None
+        # With no writable location, save is a no-op (must not raise).
+        checker._save_update_data()
+
+    def test_windows_uses_appdata(self, tmp_path, monkeypatch):
+        # Fake the Windows branch. pathlib keys Path off the real OS, so also pin
+        # it to PosixPath to keep the paths instantiable on this (POSIX) host.
+        monkeypatch.setattr(uc.os, "name", "nt")
+        monkeypatch.setattr(uc, "Path", PosixPath)
+        monkeypatch.setenv("APPDATA", str(tmp_path))
+        with patch("importlib.metadata.version", return_value="1.0.0"):
+            checker = UpdateChecker("pkg-win")
+        assert checker.data_dir == PosixPath(str(tmp_path)) / "pkg-win"
+
+    def test_save_error_is_swallowed(self):
+        with patch("importlib.metadata.version", return_value="1.0.0"):
+            checker = UpdateChecker("pkg-saveerr")
+        checker.update_data = {
+            "last_check": None,
+            "latest_version": "2.0.0",
+            "current_version": "1.0.0",
+        }
+        # An unwritable path must be swallowed, not raised.
+        checker.data_file = Path("/nonexistent-dir-xyz/deeper/update.json")
+        checker._save_update_data()
+
+    def test_check_forces_when_last_check_not_datetime(self):
+        with patch("importlib.metadata.version", return_value="1.0.0"):
+            checker = UpdateChecker("pkg-forcestr")
+        checker.update_data["last_check"] = "a string, not a datetime"
+        with patch.object(
+            checker, "_fetch_latest_version", return_value="2.0.0"
+        ) as mock_fetch:
+            checker.check_for_updates(force=False)
+            mock_fetch.assert_called_once()
+
+    def test_check_forces_when_datetime_comparison_fails(self):
+        with patch("importlib.metadata.version", return_value="1.0.0"):
+            checker = UpdateChecker("pkg-tzerr")
+        # An aware datetime vs. naive datetime.now() raises TypeError on
+        # subtraction -> the checker forces a check rather than crashing.
+        checker.update_data["last_check"] = datetime.now(timezone.utc)
+        checker.check_interval = timedelta(hours=1)
+        with patch.object(
+            checker, "_fetch_latest_version", return_value="2.0.0"
+        ) as mock_fetch:
+            checker.check_for_updates(force=False)
+            mock_fetch.assert_called_once()
 
 
 def test_check_package_for_updates_convenience():

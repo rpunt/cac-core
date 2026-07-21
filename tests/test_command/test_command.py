@@ -7,11 +7,9 @@ parsing, execution flow, error handling, and subclass behavior.
 
 import argparse
 import logging
-from unittest.mock import patch  # , MagicMock
 
 import pytest
 
-# import cac_core as cac
 from cac_core.command import Command, CommandError
 
 
@@ -62,7 +60,22 @@ class TestCommand:
         cmd = TestCmd()
         assert cmd.log is not None
         assert isinstance(cmd.log, logging.Logger)
-        assert cmd.log.name == "TestCmd"
+        # The logger is namespaced under the command's module so the runner's
+        # package-prefixed --verbose handling reaches it.
+        assert cmd.log.name == f"{type(cmd).__module__}.{type(cmd).__name__}"
+
+    def test_initialization_with_log_level(self):
+        """A log_level passed to __init__ is applied to the command's logger."""
+
+        class LeveledCmd(Command):
+            def define_arguments(self, parser):
+                return parser
+
+            def execute(self, args):
+                return 0
+
+        cmd = LeveledCmd(log_level=logging.DEBUG)
+        assert cmd.log.level == logging.DEBUG
 
     def test_define_common_arguments(self, mock_parser):
         """Test that common arguments are added to parser."""
@@ -92,9 +105,7 @@ class TestCommand:
         """Test that define_arguments adds common arguments."""
         parser = simple_command.define_arguments(mock_parser)
 
-        actions = {
-            action.dest: action for action in parser._actions
-        }  # pylint: disable=protected-access
+        actions = {action.dest: action for action in parser._actions}  # pylint: disable=protected-access
         assert "output" in actions
         assert "test" in actions  # Custom argument
 
@@ -106,9 +117,7 @@ class TestCommand:
         Command.define_common_arguments(mock_parser)
 
         # Check that there's only one output argument and it hasn't been overridden
-        output_actions = [
-            a for a in mock_parser._actions if a.dest == "output"
-        ]  # pylint: disable=protected-access
+        output_actions = [a for a in mock_parser._actions if a.dest == "output"]  # pylint: disable=protected-access
         assert len(output_actions) == 1
         assert output_actions[0].choices == [
             "csv",
@@ -119,6 +128,36 @@ class TestCommand:
         """Test that abstract methods cannot be instantiated without implementation."""
         with pytest.raises(TypeError):
             Command()  # pylint: disable=abstract-class-instantiated
+
+    def test_define_arguments_super_adds_common_args(self):
+        """Calling super().define_arguments() adds the common --output/--verbose."""
+
+        class SuperCmd(Command):
+            def define_arguments(self, parser):
+                super().define_arguments(parser)
+                return parser
+
+            def execute(self, args):
+                return 0
+
+        parser = argparse.ArgumentParser()
+        SuperCmd().define_arguments(parser)
+        dests = {a.dest for a in parser._actions}  # pylint: disable=protected-access
+        assert "output" in dests
+        assert "verbose" in dests
+
+    def test_base_execute_raises_not_implemented(self):
+        """The base execute() raises if a subclass delegates to it via super()."""
+
+        class DelegatingCmd(Command):
+            def define_arguments(self, parser):
+                return parser
+
+            def execute(self, args):
+                return super().execute(args)
+
+        with pytest.raises(NotImplementedError):
+            DelegatingCmd().execute({})
 
     def test_execute_implementation(self, simple_command):
         """Test that execute can be called on implementing class."""
@@ -133,89 +172,3 @@ class TestCommand:
 
         assert "Command failed" in str(excinfo.value)
         assert excinfo.value.exit_code == 1
-
-    def test_safe_execute_success(self, simple_command):
-        """Test that safe_execute handles successful execution."""
-        success, result = simple_command.safe_execute({"test": "value"})
-
-        assert success is True
-        assert result["status"] == "success"
-        assert result["args"]["test"] == "value"
-
-    def test_safe_execute_command_error(self, simple_command):
-        """Test that safe_execute handles CommandError."""
-        success, result = simple_command.safe_execute({"fail": True})
-
-        assert success is False
-        assert isinstance(result, CommandError)
-        assert "Command failed" in result.message
-
-    def test_safe_execute_unexpected_error(self, simple_command):
-        """Test that safe_execute handles unexpected errors."""
-        with patch.object(
-            simple_command, "execute", side_effect=ValueError("Unexpected")
-        ):
-            success, result = simple_command.safe_execute({})
-
-        assert success is False
-        assert isinstance(result, CommandError)
-        assert "Unexpected error" in result.message
-
-    def test_verbose_mode_changes_log_level(self, simple_command):
-        """Verbose sets DEBUG during execution and restores the level after."""
-        original_level = simple_command.log.level
-
-        # Capture the level while execute() is running.
-        observed = {}
-
-        def record_level(_args):
-            observed["level"] = simple_command.log.level
-            return None
-
-        with patch.object(simple_command, "execute", side_effect=record_level):
-            simple_command.safe_execute({"verbose": True})
-
-        # DEBUG was active during the command...
-        assert observed["level"] == logging.DEBUG
-        # ...and the shared logger's level is restored afterward so it does not
-        # leak DEBUG into subsequent non-verbose runs.
-        assert simple_command.log.level == original_level
-
-    def test_validate_args(self, simple_command):
-        """Test argument validation."""
-        # Base implementation should always return True
-        assert simple_command.validate_args({}) is True
-
-        # Test custom validation
-        class ValidatingCommand(Command):
-            """
-            A simple command implementation for testing purposes.
-            """
-
-            def define_arguments(self, parser):
-                return parser
-
-            def execute(self, args):
-                return args
-
-            def validate_args(self, args):
-                if "required_arg" not in args:
-                    raise CommandError("Missing required argument")
-                return True
-
-        cmd = ValidatingCommand()
-
-        # Test direct validation raises error
-        with pytest.raises(CommandError) as excinfo:
-            cmd.validate_args({})
-        assert "Missing required argument" in str(excinfo.value)
-
-        # Test safe_execute properly handles validation errors
-        success, result = cmd.safe_execute({})
-        assert success is False
-        assert isinstance(result, CommandError)
-        assert "Missing required argument" in result.message
-
-        # Should pass validation
-        success, _ = cmd.safe_execute({"required_arg": "value"})
-        assert success is True

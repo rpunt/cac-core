@@ -424,6 +424,89 @@ class Config:
         """
         self.config.update(update_dict)
 
+    # Instance attributes that hold Config's own state. A config key must never
+    # overwrite these when its value is synced to an attribute -- unlike methods
+    # and class attributes, these are set per-instance and so are not caught by
+    # ``hasattr(type(self), key)``.
+    _RESERVED_INSTANCE_ATTRS = frozenset(
+        {"config", "module_name", "env_prefix", "config_file", "config_dir"}
+    )
+
+    def _would_shadow_internal(self, key):
+        """Return True if exposing ``key`` as an attribute would clobber Config's
+        own state or API (private names, methods/class attributes, or the
+        internal instance attributes above)."""
+        return (
+            key.startswith("_")
+            or key in self._RESERVED_INSTANCE_ATTRS
+            or hasattr(type(self), key)
+        )
+
+    def ensure_keys(self, specs, sentinel="INVALID_DEFAULT"):
+        """
+        Prompt for any missing configuration keys on first run.
+
+        For each spec, if the stored value is still the ``sentinel`` (i.e. the
+        key was never set), prompt the user and persist the answer. This is the
+        shared first-run setup pattern for ``cac-*`` tools.
+
+        Prompting is skipped entirely during shell tab-completion (when
+        argcomplete sets ``_ARGCOMPLETE`` and hijacks stdin/stdout), so building
+        a parser for completion never hangs waiting on input. The sentinel is
+        left in place in that case, which callers already treat as "no value".
+
+        Args:
+            specs: Iterable of specs describing keys to prompt for. Each spec is
+                ``(key, prompt, required, transform)`` where ``prompt`` is the
+                text shown, ``required`` forces the key to be saved even when the
+                answer is empty, and ``transform`` (or ``None``) post-processes
+                the stripped input.
+            sentinel: The "unset" marker to compare against (default
+                ``"INVALID_DEFAULT"``).
+
+        Returns:
+            bool: True if any key was written, False otherwise.
+        """
+        if os.environ.get("_ARGCOMPLETE"):
+            return False
+
+        wrote = False
+        for key, prompt, required, transform in specs:
+            current = self.get(key, sentinel)
+            if current != sentinel:
+                continue
+
+            try:
+                value = input(prompt).strip()
+            except EOFError:
+                # No interactive input available (e.g. stdin is /dev/null in CI,
+                # or piped input ran out). Degrade gracefully rather than crash
+                # with a traceback: leave remaining keys at the sentinel, which
+                # callers treat as "not configured". Further prompts would EOF
+                # too, so stop here.
+                logger.error(
+                    "Cannot prompt for %r: no interactive input available. "
+                    "Set it in %s and retry.",
+                    key,
+                    self.config_file,
+                )
+                break
+
+            if transform is not None:
+                value = transform(value)
+
+            if value or required:
+                self.set(key, value)
+                # Keep the convenience attribute in sync with the stored value
+                # (Config exposes non-colliding keys as attributes), unless the
+                # name would shadow Config's own state or API.
+                if not self._would_shadow_internal(key):
+                    setattr(self, key, value)
+                self.save()
+                wrote = True
+
+        return wrote
+
     def validate_schema(self, schema):
         """
         Validates configuration against a JSON schema.

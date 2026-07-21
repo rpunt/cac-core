@@ -8,7 +8,7 @@ common functionality that all commands should implement.
 
 import abc
 import logging
-from typing import Any, Dict, Optional, Tuple, Union  # , List
+from typing import Any, Dict, Optional
 
 
 class CommandError(Exception):
@@ -36,7 +36,12 @@ class Command(metaclass=abc.ABCMeta):
         """
         Initialize the command.
         """
-        self.log = logging.getLogger(self.__class__.__name__)
+        # Namespace the logger under the command's package (e.g.
+        # ``cac_jira.commands.issue.show.IssueShow``) rather than the bare class
+        # name. The shared runner's ``--verbose`` handling raises every logger
+        # whose name starts with the tool package, so a bare ``IssueShow`` logger
+        # would be silently missed.
+        self.log = logging.getLogger(f"{type(self).__module__}.{type(self).__name__}")
         if log_level is not None:
             self.log.setLevel(log_level)
 
@@ -96,62 +101,66 @@ class Command(metaclass=abc.ABCMeta):
         """
         raise NotImplementedError("Command subclasses must implement execute()")
 
-    def validate_args(self, args: Dict[str, Any]) -> bool:
+    def run(self, args: Any) -> int:
         """
-        Validate command arguments before execution.
+        Run the command and map its outcome to a process exit code.
+
+        This is the template method the shared CLI runner invokes. It calls the
+        subclass's ``execute()`` and turns any raised exception into a logged,
+        non-zero exit code via ``handle_exception``. Centralizing this here means
+        individual commands implement ``execute()`` as straight-line logic and
+        may raise freely (or return a non-zero int for their own validation
+        failures) without each writing their own try/except.
+
+        ``execute()`` must return an ``int`` exit code or ``None`` (treated as
+        ``0``). Any other return -- including a ``bool`` -- is a contract
+        violation: it is logged and treated as failure, so a stray ``return
+        True``/``return "..."`` can never be handed to ``sys.exit`` and silently
+        invert or corrupt the process exit code.
 
         Args:
-            args (dict): Dictionary of parsed command-line arguments
-
-        Raises:
-            CommandError: If arguments are invalid
+            args: The parsed arguments.
 
         Returns:
-            bool: True if arguments are valid
+            int: ``0`` on success, non-zero on failure.
         """
-        # Base implementation does nothing, subclasses can override
-        return True
-
-    def safe_execute(
-        self, args: Dict[str, Any]
-    ) -> Tuple[bool, Union[Any, CommandError]]:
-        """
-        Safely execute the command with exception handling.
-
-        Args:
-            args (dict): Dictionary of parsed command-line arguments
-
-        Returns:
-            tuple: (success, result_or_error)
-        """
-        # Loggers are process-wide singletons keyed by class name, so raising
-        # the level for a verbose run would leak DEBUG into later non-verbose
-        # runs. Remember the prior level and restore it when we're done.
-        previous_level = self.log.level
         try:
-            # Set log level if verbose flag is present
-            if args.get("verbose", False):
-                self.log.setLevel(logging.DEBUG)
-
-            # Validate arguments first. Subclasses may either raise CommandError
-            # or signal invalid input by returning False (per the documented
-            # return contract); honor both.
-            if self.validate_args(args) is False:
-                raise CommandError("Argument validation failed")
-
-            # Execute the command
             result = self.execute(args)
-            return True, result
+        except Exception as e:  # pylint: disable=broad-exception-caught
+            return self.handle_exception(e)
+        if result is None:
+            return 0
+        # bool is an int subclass, so guard it explicitly -- otherwise
+        # ``return True`` would become exit code 1 and ``return False`` exit 0.
+        if isinstance(result, bool) or not isinstance(result, int):
+            self.log.warning(
+                "%s.execute() returned %r; expected an int exit code or None. "
+                "Treating it as failure.",
+                type(self).__name__,
+                result,
+            )
+            return 1
+        return result
 
-        except CommandError as e:
-            self.log.error(e.message)
-            return False, e
+    def handle_exception(self, exc: Exception) -> int:
+        """
+        Map an exception raised by ``execute()`` to an exit code.
 
-        except Exception as e:
-            # Catch unexpected exceptions
-            self.log.exception(f"Unexpected error executing {self.__class__.__name__}")
-            return False, CommandError(f"Unexpected error: {str(e)}")
+        The default logs the error (with a traceback when debug logging is on,
+        e.g. ``--verbose``) and returns ``1``. Subclasses override this to give
+        friendlier messages for domain-specific exceptions, typically calling
+        ``super().handle_exception(exc)`` for anything they don't recognize.
 
-        finally:
-            if args.get("verbose", False):
-                self.log.setLevel(previous_level)
+        Args:
+            exc: The exception raised by ``execute()``.
+
+        Returns:
+            int: A non-zero exit code.
+        """
+        self.log.error(
+            "%s failed: %s",
+            type(self).__name__,
+            exc,
+            exc_info=self.log.isEnabledFor(logging.DEBUG),
+        )
+        return 1

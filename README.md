@@ -10,8 +10,10 @@ CAC Core (`cac-core`) is a Python library that provides common utilities for bui
 
 ## Features
 
-- **Command**: Define commands, required or optional arguments, and action implementations
-- **Configuration Management**: Load/save configs from YAML files with environment variable support
+- **CLI Runner**: A shared entry point (`cac_core.cli.run` / `make_main`) that discovers a package's `commands/` tree, builds the nested `argparse` parser, wires up shell completion, and dispatches — so a CLI tool is just its commands plus a one-line entry point
+- **Command**: Abstract base class with a `run()`/`handle_exception()` exit-code template; subclasses implement `define_arguments()` and `execute()`
+- **Shell Completion**: Tab-completion of commands, actions, and options via [argcomplete](https://kislyuk.github.io/argcomplete/), wired automatically by the runner
+- **Configuration Management**: Load/save configs from YAML files with environment variable support, plus `ensure_keys()` for interactive first-run setup
 - **Standardized Logging**: Consistent, configurable logging across applications
 - **Data Modeling**: Dynamic attribute creation and manipulation with dictionary-like access
 - **Output Formatting**: Display data as tables or JSON with customization options
@@ -25,7 +27,61 @@ pip install cac-core
 
 ## Usage
 
-### Command
+### Building a CLI application (recommended)
+
+A `cac-*` tool is just a package with a `commands/` tree and a one-line entry
+point. The shared runner handles discovery, argument parsing, shell completion,
+and dispatch.
+
+Layout:
+
+```
+myapp/
+  __init__.py        # defines `main`
+  commands/
+    __init__.py
+    greet/
+      __init__.py
+      hello.py       # class GreetHello(Command)
+```
+
+`myapp/__init__.py`:
+
+```python
+from cac_core.cli import make_main
+
+# wire the console-script entry point to this callable:
+#   [project.scripts]  myapp = "myapp:main"
+main = make_main("myapp", "myapp", "My CLI tool")
+```
+
+`myapp/commands/greet/hello.py` — the class name must be `{Command}{Action}`
+(here `GreetHello`), and modules whose name starts with `_` are treated as
+private and skipped by discovery:
+
+```python
+import cac_core as cac
+
+class GreetHello(cac.command.Command):
+    def define_arguments(self, parser):
+        self.define_common_arguments(parser)   # adds --output/--verbose
+        parser.add_argument("--name", default="World")
+        return parser
+
+    def execute(self, args):
+        # Return an int exit code (or None for success). Errors may propagate;
+        # the base run()/handle_exception template logs them and returns 1.
+        print(f"Hello, {args.name}!")
+        return 0
+```
+
+That's it — `myapp greet hello --name Ada`, `myapp --help`, `myapp --verbose
+greet hello`, and tab-completion (see below) all work. Enable completion with
+`eval "$(register-python-argcomplete myapp)"` in your shell.
+
+### Command (low-level)
+
+You can also drive a `Command` directly, without the runner:
 
 ```python
 import cac_core as cac
@@ -195,11 +251,14 @@ uv run pytest
 
 ## Project Structure
 
-- command.py - Command management
+- cli.py - Shared CLI runner (`run` / `make_main`): discovery, argument parsing, completion, dispatch
+- command.py - Abstract `Command` base class and exit-code template
 - config.py - Configuration management
 - logger.py - Standardized logging
 - model.py - Data modeling utilities
 - output.py - Output formatting
+- credentialmanager.py - Cross-platform credential storage
+- updatechecker.py - PyPI/GitHub update checks
 
 ## License
 
