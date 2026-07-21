@@ -17,6 +17,15 @@ wheels = [
 ]
 
 [[package]]
+name = "argcomplete"
+version = "3.7.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/95/c0/c8e94135e66fabf89a120d9b4b123fe6993506beca6c1938a74c24cfa5fd/argcomplete-3.7.0.tar.gz", hash = "sha256:afde224f753f874807b1dc1414e883ab8fe0cda9c04807b6047dcb8e1ac23913", size = 73284, upload-time = "2026-06-30T22:28:22.249Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/12/f6/5b8ec087cd9cfa9449491ec83f76fb6b7006b4dff57d2ba8aaab330fe8e4/argcomplete-3.7.0-py3-none-any.whl", hash = "sha256:d8f0f22d2a8a7caa383be1e22b6caf1ecaf0ebd10d8f83cc125e36540c95830c", size = 42575, upload-time = "2026-06-30T22:28:20.547Z" },
+]
+
+[[package]]
 name = "astroid"
 version = "3.3.9"
 source = { registry = "https://pypi.org/simple" }
@@ -103,6 +112,7 @@ wheels = [
 name = "cac-core"
 source = { editable = "." }
 dependencies = [
+    { name = "argcomplete" },
     { name = "keyring" },
     { name = "logger" },
     { name = "packaging" },
@@ -136,6 +146,7 @@ validation = [
 
 [package.metadata]
 requires-dist = [
+    { name = "argcomplete", specifier = ">=3.6.2" },
     { name = "black", marker = "extra == 'lint'", specifier = ">=26.3.1" },
     { name = "isort", marker = "extra == 'lint'", specifier = ">=5.12.0" },
     { name = "jsonschema", marker = "extra == 'validation'", specifier = ">=4.0.0" },

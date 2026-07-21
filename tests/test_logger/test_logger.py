@@ -40,6 +40,16 @@ class TestLogger:
         logger = cac.logger.new("test_debug_level", level=logging.DEBUG)
         assert logger.level == logging.DEBUG
 
+    def test_logger_string_level_normalized(self):
+        """A string level name is normalized to its numeric value."""
+        logger = cac.logger.new("test_str_level", level="DEBUG")
+        assert logger.level == logging.DEBUG
+
+    def test_logger_invalid_string_level_falls_back_to_info(self):
+        """An unrecognized string level falls back to INFO instead of erroring."""
+        logger = cac.logger.new("test_bad_level", level="NOT_A_REAL_LEVEL")
+        assert logger.level == logging.INFO
+
     def test_logger_debug_format(self):
         """Test that DEBUG level uses detailed format string."""
         logger = cac.logger.new("test_debug_format", level=logging.DEBUG)

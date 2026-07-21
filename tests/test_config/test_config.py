@@ -267,9 +267,9 @@ class TestConfig:
 
         for module_name, expected_prefix in test_cases:
             config = Config(module_name)
-            assert (
-                config.env_prefix == expected_prefix
-            ), f"Module name '{module_name}' should convert to env prefix '{expected_prefix}'"
+            assert config.env_prefix == expected_prefix, (
+                f"Module name '{module_name}' should convert to env prefix '{expected_prefix}'"
+            )
 
     def test_load_nonexistent_file(self):
         """Test loading a nonexistent file with _load_config method."""
@@ -344,9 +344,9 @@ class TestConfig:
             # Verify file contains a valid YAML empty dict
             with open(config_path, "r", encoding="utf-8") as f:
                 file_content = yaml.safe_load(f)
-                assert (
-                    file_content is None or file_content == {}
-                ), "Empty config should save as empty dict"
+                assert file_content is None or file_content == {}, (
+                    "Empty config should save as empty dict"
+                )
 
             # Load the empty config into a new object
             config2 = Config("empty-test")
@@ -424,9 +424,9 @@ class TestConfig:
             # Verify the file has content
             with open(temp_file, "r", encoding="utf-8") as f:
                 saved_content = yaml.safe_load(f)
-                assert (
-                    saved_content and len(saved_content) > 0
-                ), "File should have initial content"
+                assert saved_content and len(saved_content) > 0, (
+                    "File should have initial content"
+                )
 
             # Now create a new config object pointing to the same file
             config = Config("test-app")
@@ -444,9 +444,9 @@ class TestConfig:
             config2 = Config("test-app")
             config2.config_file = temp_file
             config2.config = config2._load_config()
-            assert (
-                len(config2.config) > 0
-            ), "File should not be cleared until save is called"
+            assert len(config2.config) > 0, (
+                "File should not be cleared until save is called"
+            )
 
             # Now save the empty config and verify it persists
             config.save()

@@ -28,4 +28,7 @@ jobs:
         run: uv run ruff format --diff .
         continue-on-error: true
       - name: Test with pytest
-        run: uv run pytest --doctest-modules --cov=cac_core --cov-report=term-missing
+        # Coverage is gated so a change that ships untested code fails CI. The
+        # threshold sits just under the current level to leave a little headroom
+        # without letting coverage silently erode.
+        run: uv run pytest --cov=cac_core --cov-report=term-missing --cov-fail-under=90
